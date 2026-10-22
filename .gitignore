@@ -16,8 +16,9 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Xcode
-.build/
-*.xcodeproj/xcuserdata/
-*.xcworkspace/xcuserdata/
+# Xcode project & workspace files
+*.xcodeproj/
+*.xcworkspace/
 DerivedData/
+.build/
+Products/
