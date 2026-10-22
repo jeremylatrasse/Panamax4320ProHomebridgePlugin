@@ -18,6 +18,16 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C718DC7F308A69E60025E047 /* config.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = config.schema.json; sourceTree = "<group>"; };
+		C718DC80308A69E60025E047 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+		C718DC81308A69E60025E047 /* package.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = package.json; sourceTree = "<group>"; };
+		C718DC82308A69E60025E047 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		C718DC83308A69E60025E047 /* tsconfig.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = tsconfig.json; sourceTree = "<group>"; };
+		C718DC84308A6A570025E047 /* index.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = index.ts; sourceTree = "<group>"; };
+		C718DC85308A6A570025E047 /* panamaxClient.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = panamaxClient.ts; sourceTree = "<group>"; };
+		C718DC86308A6A570025E047 /* platform.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = platform.ts; sourceTree = "<group>"; };
+		C718DC87308A6A570025E047 /* platformAccessory.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = platformAccessory.ts; sourceTree = "<group>"; };
+		C718DC88308A6A570025E047 /* settings.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = settings.ts; sourceTree = "<group>"; };
 		C7C1B6C23089A11B00143E1E /* Panamax4320ProHomebridge */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Panamax4320ProHomebridge; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -38,9 +48,27 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		C718DC89308A6A570025E047 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				C718DC84308A6A570025E047 /* index.ts */,
+				C718DC85308A6A570025E047 /* panamaxClient.ts */,
+				C718DC86308A6A570025E047 /* platform.ts */,
+				C718DC87308A6A570025E047 /* platformAccessory.ts */,
+				C718DC88308A6A570025E047 /* settings.ts */,
+			);
+			path = src;
+			sourceTree = "<group>";
+		};
 		C7C1B6B93089A11B00143E1E = {
 			isa = PBXGroup;
 			children = (
+				C718DC7F308A69E60025E047 /* config.schema.json */,
+				C718DC80308A69E60025E047 /* LICENSE */,
+				C718DC81308A69E60025E047 /* package.json */,
+				C718DC82308A69E60025E047 /* README.md */,
+				C718DC83308A69E60025E047 /* tsconfig.json */,
+				C718DC89308A6A570025E047 /* src */,
 				C7C1B6C43089A11B00143E1E /* Panamax4320ProHomebridge */,
 				C7C1B6C33089A11B00143E1E /* Products */,
 			);
