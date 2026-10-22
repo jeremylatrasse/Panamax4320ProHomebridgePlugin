@@ -18,7 +18,7 @@ export class PanamaxOutletAccessory {
     private readonly platform: Panamax4320Platform,
     private readonly accessory: PlatformAccessory,
     private readonly client: PanamaxClient,
-    private readonly outletConfig: OutletConfig,
+    outletConfig: OutletConfig,
   ) {
     this.outletIndex = outletConfig.index;
     this.isOutletType = (outletConfig.accessoryType || 'Outlet') === 'Outlet';
@@ -107,7 +107,7 @@ export class PanamaxMasterSwitchAccessory {
     private readonly platform: Panamax4320Platform,
     private readonly accessory: PlatformAccessory,
     private readonly client: PanamaxClient,
-    private readonly name: string,
+    name: string,
   ) {
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Panamax')
@@ -166,7 +166,7 @@ export class PanamaxRebootAccessory {
     private readonly accessory: PlatformAccessory,
     private readonly client: PanamaxClient,
     private readonly rebootId: 1 | 2,
-    private readonly name: string,
+    name: string,
   ) {
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Panamax')

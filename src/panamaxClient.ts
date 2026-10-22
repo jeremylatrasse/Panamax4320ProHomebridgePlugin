@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import * as net from 'net';
-import { Logging } from 'homebridge';
+import { Logger } from 'homebridge';
 
 export interface PanamaxClientConfig {
   host: string;
@@ -23,14 +23,6 @@ export class PanamaxClient extends EventEmitter {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private pollTimer: NodeJS.Timeout | null = null;
   private buffer = '';
-  private commandQueue: Array<{
-    command: string;
-    resolve: (response: string[]) => void;
-    reject: (err: Error) => void;
-    expectedPrefix?: string;
-    timeoutTimer?: NodeJS.Timeout;
-  }> = [];
-  private isProcessingQueue = false;
 
   public status: PanamaxDeviceStatus = {
     outlets: new Array(9).fill(false), // 0 unused, 1..8
@@ -42,8 +34,8 @@ export class PanamaxClient extends EventEmitter {
   private readonly timeoutMs: number;
 
   constructor(
-    private readonly config: PanamaxClientConfig,
-    private readonly log: Logging,
+    config: PanamaxClientConfig,
+    private readonly log: Logger,
   ) {
     super();
     this.host = config.host;
