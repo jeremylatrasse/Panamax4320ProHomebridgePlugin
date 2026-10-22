@@ -1,6 +1,7 @@
 {
   "pluginAlias": "Panamax4320",
   "pluginType": "platform",
+  "singular": true,
   "headerDisplay": "Panamax M4320-PRO Power Conditioner Plugin for Homebridge",
   "footerDisplay": "Control multiple Panamax M4320-PRO and M4315-PRO units over local TCP / Telnet. All configured units are published together under 1 Child Bridge when child bridging is enabled.",
   "schema": {
@@ -10,8 +11,12 @@
         "title": "Platform Name",
         "type": "string",
         "default": "Panamax 4320",
-        "required": true,
         "description": "The name for this platform instance in Homebridge."
+      },
+      "platform": {
+        "title": "Platform Identifier",
+        "type": "string",
+        "default": "Panamax4320"
       },
       "_bridge": {
         "type": "object",
@@ -24,36 +29,34 @@
         }
       },
       "devices": {
-        "title": "Panamax Devices",
+        "title": "Panamax Units",
         "type": "array",
         "items": {
+          "title": "Panamax Unit",
           "type": "object",
           "properties": {
             "name": {
-              "title": "Device Name (Required & Unique)",
+              "title": "Device Name",
               "type": "string",
               "placeholder": "e.g., AV Rack 4320, Living Room Power",
-              "required": true,
               "description": "A unique, identifiable name for this Panamax hardware unit."
             },
             "id": {
               "title": "Unique Identifier (Optional)",
               "type": "string",
               "placeholder": "e.g., rack-panamax-01",
-              "description": "Optional unique ID used to maintain persistent HomeKit pairing if IP or name changes."
+              "description": "Optional unique ID to maintain persistent HomeKit pairing if IP or name changes."
             },
             "host": {
               "title": "IP Address / Hostname",
               "type": "string",
               "placeholder": "192.168.1.50",
-              "required": true,
               "description": "Local network IP or hostname of the Panamax BlueBOLT card."
             },
             "port": {
               "title": "TCP / Telnet Port",
               "type": "integer",
               "default": 23,
-              "required": true,
               "description": "Default is 23."
             },
             "pollInterval": {
@@ -89,7 +92,9 @@
             "outlets": {
               "title": "Outlet Customizations (Optional)",
               "type": "array",
+              "description": "Optional: customize names or service types for individual outlets 1 through 8. If empty, all 8 outlets are active with default names.",
               "items": {
+                "title": "Outlet",
                 "type": "object",
                 "properties": {
                   "index": {
@@ -97,7 +102,7 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 8,
-                    "required": true
+                    "default": 1
                   },
                   "name": {
                     "title": "Outlet Display Name",
@@ -118,57 +123,14 @@
                       { "title": "Switch", "enum": ["Switch"] }
                     ]
                   }
-                },
-                "required": ["index"]
+                }
               }
             }
           },
-          "required": ["name", "host", "port"]
+          "required": ["name", "host"]
         }
       }
-    }
-  },
-  "layout": [
-    "name",
-    {
-      "key": "devices",
-      "type": "tabarray",
-      "title": "{{ value.name || 'Panamax Unit ' + ($index + 1) }}",
-      "items": [
-        "devices[].name",
-        {
-          "type": "flex",
-          "flex-flow": "row wrap",
-          "items": [
-            { "key": "devices[].host", "flex": "3 1 200px" },
-            { "key": "devices[].port", "flex": "1 1 100px" }
-          ]
-        },
-        {
-          "type": "flex",
-          "flex-flow": "row wrap",
-          "items": [
-            { "key": "devices[].accessoryMode", "flex": "2 1 200px" },
-            { "key": "devices[].pollInterval", "flex": "1 1 100px" }
-          ]
-        },
-        {
-          "type": "help",
-          "helpvalue": "<p><strong>Outlet Configuration:</strong> If left empty, all 8 outlets will be published with default names (e.g. Outlet 1..Outlet 8). You can customize individual names, disable unneeded outlets, or change whether they appear as Outlets or Switches in Apple Home.</p>"
-        },
-        "devices[].enableAllOutletsSwitch",
-        "devices[].enableRebootButtons",
-        {
-          "key": "devices[].outlets",
-          "type": "table",
-          "items": [
-            "devices[].outlets[].index",
-            "devices[].outlets[].name",
-            "devices[].outlets[].enabled",
-            "devices[].outlets[].accessoryType"
-          ]
-        }
-      ]
-    }
-  ]
+    },
+    "required": ["name"]
+  }
 }
