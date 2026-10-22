@@ -18,6 +18,7 @@ Thumbs.db
 
 # Xcode project & workspace files
 *.xcodeproj/
+*.pbxproj
 *.xcworkspace/
 DerivedData/
 .build/
