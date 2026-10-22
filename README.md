@@ -12,13 +12,15 @@ A dynamic platform plugin for [Homebridge](https://homebridge.io) to control **P
 
 ## Features
 
+- **Single Child Bridge for All Units:** Publishes all your configured Panamax units together on **one child bridge** rather than cluttering your setup with separate bridges per device.
+- **Clean Unified Device Layout:** By default, each Panamax unit is published as **one unified accessory** containing all 8 outlets as individual services with distinct names. In Apple Home, you can view the unit as a single tidy tile or choose "Show as Separate Tiles".
+- **Unique Multi-Device Identification:** Easily configure multiple Panamax power conditioners (e.g., *AV Rack*, *Living Room*, *Studio*) with unique names, persistent IDs, and distinct tabs in Homebridge Config UI X.
 - **Direct Local Network Control:** Fast, reliable communication via raw TCP/Telnet (`Port 23`) directly to the Panamax BlueBOLT card. No cloud connection or external services required.
-- **Independent Outlet Control:** Exposes all 8 individual outlets as HomeKit accessories (configurable as `Outlet` or `Switch`).
 - **Real-Time Feedback & State Sync:** Listens for unsolicited feedback broadcasts from the Panamax and polls periodically to keep Apple Home in sync when outlets are toggled physically.
-- **Customizable Outlets:** Rename outlets, choose between Outlet or Switch accessory type, or hide individual outlets completely from HomeKit.
+- **Customizable Outlets:** Rename outlets, choose between `Outlet` or `Switch` service types, or hide unneeded outlets completely from HomeKit.
 - **Optional Master Switch:** Adds a master switch to toggle all outlets ON or OFF simultaneously.
 - **Optional Reboot Switches:** Exposes Reboot 1 and Reboot 2 as momentary buttons in HomeKit to trigger power-cycling sequences.
-- **Homebridge Config UI X Support:** Full visual schema configuration with tabs and tables.
+- **Homebridge Config UI X Support:** Full visual schema configuration with tabs, tooltips, and outlet tables.
 - **Built-in Swift Diagnostic Tool:** Includes a native macOS CLI tool in the repository for direct troubleshooting and testing from terminal or Xcode.
 
 ---
@@ -31,34 +33,22 @@ A dynamic platform plugin for [Homebridge](https://homebridge.io) to control **P
 
 ---
 
-## Installation
+## Running as a Single Child Bridge
 
-### Via Homebridge UI
-Search for `homebridge-panamax-4320` in the **Plugins** tab of Homebridge Config UI X and click **Install**.
+Homebridge child bridges run plugins in an isolated process with their own HomeKit pairing code. Because this plugin is a **Dynamic Platform**, **all Panamax devices configured under this platform are published together on 1 single child bridge**:
 
-### Via Terminal
-```bash
-npm install -g homebridge-panamax-4320
-```
-
-### Developing or Linking Locally
-If you cloned this repository and want to run it directly in your local Homebridge instance:
-```bash
-cd /path/to/Panamax4320ProHomebridge
-npm install
-npm run build
-npm link
-```
-In your Homebridge environment:
-```bash
-npm link homebridge-panamax-4320
-```
+1. In the **Homebridge Config UI X** dashboard, go to the **Plugins** tab.
+2. Find the **Panamax 4320** plugin card.
+3. Click the **Wrench icon** (Settings) -> **Bridge Settings**.
+4. Toggle **Run as Child Bridge** and click **Save**.
+5. Restart Homebridge.
+6. Scan the single QR code shown on the dashboard to pair all your Panamax devices into Apple Home at once!
 
 ---
 
 ## Configuration
 
-### Example `config.json`
+### Example `config.json` with Multiple Units
 
 ```json
 {
@@ -66,12 +56,18 @@ npm link homebridge-panamax-4320
     {
       "platform": "Panamax4320",
       "name": "Panamax 4320",
+      "_bridge": {
+        "username": "0E:43:20:AA:BB:CC",
+        "port": 51820
+      },
       "devices": [
         {
-          "name": "Rack Power Conditioner",
+          "name": "AV Rack 4320",
+          "id": "rack-panamax-01",
           "host": "192.168.1.50",
           "port": 23,
           "pollInterval": 10,
+          "accessoryMode": "device",
           "enableAllOutletsSwitch": true,
           "enableRebootButtons": false,
           "outlets": [
@@ -83,6 +79,20 @@ npm link homebridge-panamax-4320
             { "index": 6, "name": "Network Switch", "enabled": false },
             { "index": 7, "name": "Modem", "enabled": false },
             { "index": 8, "name": "Access Point", "enabled": false }
+          ]
+        },
+        {
+          "name": "Living Room Media",
+          "id": "living-room-panamax-02",
+          "host": "192.168.1.51",
+          "port": 23,
+          "pollInterval": 10,
+          "accessoryMode": "device",
+          "enableAllOutletsSwitch": false,
+          "enableRebootButtons": false,
+          "outlets": [
+            { "index": 1, "name": "TV OLED", "enabled": true, "accessoryType": "Outlet" },
+            { "index": 2, "name": "Soundbar", "enabled": true, "accessoryType": "Outlet" }
           ]
         }
       ]
@@ -96,12 +106,14 @@ npm link homebridge-panamax-4320
 | Parameter | Type | Required | Default | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `platform` | `string` | **Yes** | `"Panamax4320"` | Platform identifier |
-| `name` | `string` | **Yes** | `"Panamax 4320"` | Display name for the platform |
-| `devices` | `array` | **Yes** | `[]` | List of Panamax units to control |
-| `devices[].name` | `string` | **Yes** | `"Panamax 4320"` | Name prefix for the device |
+| `name` | `string` | **Yes** | `"Panamax 4320"` | Platform instance name in Homebridge |
+| `devices` | `array` | **Yes** | `[]` | List of Panamax hardware units to manage |
+| `devices[].name` | `string` | **Yes** | — | Unique, identifiable name for the unit (e.g. *"AV Rack 4320"*) |
+| `devices[].id` | `string` | No | — | Optional unique ID to keep persistent HomeKit pairing if IP changes |
 | `devices[].host` | `string` | **Yes** | — | IP address or hostname of the Panamax unit |
 | `devices[].port` | `integer` | No | `23` | TCP port (default is 23) |
 | `devices[].pollInterval` | `integer` | No | `10` | Status polling interval in seconds |
+| `devices[].accessoryMode` | `string` | No | `"device"` | `"device"` (1 unified accessory per unit) or `"individual"` (separate accessory per outlet) |
 | `devices[].enableAllOutletsSwitch` | `boolean` | No | `false` | Expose a master switch to turn all outlets on/off |
 | `devices[].enableRebootButtons` | `boolean` | No | `false` | Expose Reboot 1 / Reboot 2 buttons |
 | `devices[].outlets` | `array` | No | `[]` | Custom outlet settings (index 1–8) |
@@ -114,9 +126,9 @@ npm link homebridge-panamax-4320
 
 ## macOS Swift Diagnostic Tool
 
-The repository also includes a native Swift CLI executable in the Xcode project (`Panamax4320ProHomebridge.xcodeproj`).
+The repository includes a native Swift CLI executable in the Xcode project (`Panamax4320ProHomebridge.xcodeproj`).
 
-You can run it from Xcode or compile from terminal to test communication with your device:
+You can run it from Xcode or terminal to test communication with your device:
 ```bash
 # Query all outlet states
 ./Products/Panamax4320ProHomebridge --host 192.168.1.50 --status

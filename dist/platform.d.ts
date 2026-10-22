@@ -1,14 +1,4 @@
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic } from 'homebridge';
-import { OutletConfig } from './platformAccessory';
-export interface PanamaxDeviceConfig {
-    name: string;
-    host: string;
-    port?: number;
-    pollInterval?: number;
-    enableAllOutletsSwitch?: boolean;
-    enableRebootButtons?: boolean;
-    outlets?: OutletConfig[];
-}
 export declare class Panamax4320Platform implements DynamicPlatformPlugin {
     readonly log: Logger;
     readonly config: PlatformConfig;
