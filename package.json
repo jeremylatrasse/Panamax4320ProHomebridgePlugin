@@ -1,0 +1,38 @@
+{
+  "name": "homebridge-panamax-4320",
+  "version": "1.0.0",
+  "description": "Homebridge dynamic platform plugin for Panamax M4320-PRO (and M4315-PRO) power conditioners over TCP/Telnet.",
+  "license": "Apache-2.0",
+  "keywords": [
+    "homebridge-plugin",
+    "panamax",
+    "m4320-pro",
+    "m4315-pro",
+    "bluebolt",
+    "power-conditioner",
+    "pdu"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "homebridge": ">=1.6.0"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "config.schema.json",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "homebridge": "^1.8.0",
+    "typescript": "^5.4.0"
+  }
+}

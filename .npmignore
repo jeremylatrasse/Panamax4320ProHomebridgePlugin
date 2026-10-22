@@ -1,0 +1,8 @@
+src/
+Panamax4320ProHomebridge/
+Panamax4320ProHomebridge.xcodeproj/
+.github/
+.vscode/
+.idea/
+tsconfig.json
+.DS_Store

@@ -1,0 +1,137 @@
+{
+  "pluginAlias": "Panamax4320",
+  "pluginType": "platform",
+  "headerDisplay": "Panamax M4320-PRO Power Conditioner Plugin for Homebridge",
+  "footerDisplay": "Control your Panamax M4320-PRO power conditioner outlets over local TCP / Telnet.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Platform Name",
+        "type": "string",
+        "default": "Panamax 4320",
+        "required": true
+      },
+      "devices": {
+        "title": "Panamax Devices",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "title": "Device Name",
+              "type": "string",
+              "default": "Panamax 4320",
+              "required": true
+            },
+            "host": {
+              "title": "IP Address / Hostname",
+              "type": "string",
+              "placeholder": "192.168.1.50",
+              "required": true
+            },
+            "port": {
+              "title": "TCP / Telnet Port",
+              "type": "integer",
+              "default": 23,
+              "required": true
+            },
+            "pollInterval": {
+              "title": "Polling Interval (seconds)",
+              "type": "integer",
+              "default": 10,
+              "minimum": 2,
+              "maximum": 300,
+              "description": "How often to poll outlet status. Default is 10 seconds."
+            },
+            "enableAllOutletsSwitch": {
+              "title": "Expose Master All-Outlets Switch",
+              "type": "boolean",
+              "default": false,
+              "description": "Adds a master switch to turn all outlets ON or OFF simultaneously."
+            },
+            "enableRebootButtons": {
+              "title": "Expose Reboot Buttons",
+              "type": "boolean",
+              "default": false,
+              "description": "Adds stateless switches for triggering Panamax Reboot 1 and Reboot 2 sequences."
+            },
+            "outlets": {
+              "title": "Outlet Customizations (Optional)",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "index": {
+                    "title": "Outlet Number (1 - 8)",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 8,
+                    "required": true
+                  },
+                  "name": {
+                    "title": "Outlet Display Name",
+                    "type": "string",
+                    "placeholder": "e.g., Apple TV, Subwoofer, Receiver"
+                  },
+                  "enabled": {
+                    "title": "Expose to HomeKit",
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "accessoryType": {
+                    "title": "HomeKit Accessory Type",
+                    "type": "string",
+                    "default": "Outlet",
+                    "oneOf": [
+                      { "title": "Outlet", "enum": ["Outlet"] },
+                      { "title": "Switch", "enum": ["Switch"] }
+                    ]
+                  }
+                },
+                "required": ["index"]
+              }
+            }
+          },
+          "required": ["name", "host", "port"]
+        }
+      }
+    }
+  },
+  "layout": [
+    "name",
+    {
+      "key": "devices",
+      "type": "tabarray",
+      "title": "{{ value.name || 'Panamax Device' }}",
+      "items": [
+        "devices[].name",
+        {
+          "type": "flex",
+          "flex-flow": "row wrap",
+          "items": [
+            { "key": "devices[].host", "flex": "3 1 200px" },
+            { "key": "devices[].port", "flex": "1 1 100px" }
+          ]
+        },
+        "devices[].pollInterval",
+        {
+          "type": "help",
+          "helpvalue": "<p><strong>Outlet Configuration:</strong> If left empty, all 8 outlets will be published with default names (e.g. Outlet 1..Outlet 8). You can customize names, disable specific outlets, or change whether they appear as Outlets or Switches in Apple Home.</p>"
+        },
+        "devices[].enableAllOutletsSwitch",
+        "devices[].enableRebootButtons",
+        {
+          "key": "devices[].outlets",
+          "type": "table",
+          "items": [
+            "devices[].outlets[].index",
+            "devices[].outlets[].name",
+            "devices[].outlets[].enabled",
+            "devices[].outlets[].accessoryType"
+          ]
+        }
+      ]
+    }
+  ]
+}
