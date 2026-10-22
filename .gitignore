@@ -9,7 +9,6 @@ yarn-error.log*
 node_modules/
 
 # TypeScript output
-## dist/
 ## *.tsbuildinfo
 
 # OS metadata
