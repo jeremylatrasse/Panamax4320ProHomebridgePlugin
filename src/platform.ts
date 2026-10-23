@@ -13,8 +13,10 @@ import { PanamaxClient } from './panamaxClient';
 import {
   PanamaxDeviceAccessory,
   PanamaxIndividualOutletAccessory,
+  PanamaxMasterSwitchAccessory,
   PanamaxDeviceConfig,
-  OutletConfig,
+  resolveOutletControlMode,
+  resolveOrderedOutlets,
 } from './platformAccessory';
 
 export class Panamax43xxPlatform implements DynamicPlatformPlugin {
@@ -71,8 +73,11 @@ export class Panamax43xxPlatform implements DynamicPlatformPlugin {
       const deviceName = deviceConfig.name?.trim() || `Panamax Unit ${deviceIndex + 1}`;
       const deviceIdentifier = deviceConfig.id?.trim() || deviceName;
       const mode = deviceConfig.accessoryMode || 'device';
+      const controlMode = resolveOutletControlMode(deviceConfig);
 
-      this.log.info(`[${deviceName}] Configuring unit at ${deviceConfig.host}:${deviceConfig.port || 23} (Mode: ${mode})`);
+      this.log.info(
+        `[${deviceName}] Configuring unit at ${deviceConfig.host}:${deviceConfig.port || 23} (Mode: ${mode}, Control: ${controlMode})`,
+      );
 
       // Initialize persistent TCP client for this physical Panamax device
       const client = new PanamaxClient(
@@ -89,7 +94,7 @@ export class Panamax43xxPlatform implements DynamicPlatformPlugin {
 
       if (mode === 'device') {
         // UNIFIED DEVICE MODE (Default & Recommended)
-        // Publishes 1 single clean accessory per Panamax unit, containing 8 outlet services.
+        // Publishes 1 single clean accessory per Panamax unit
         const deviceUuid = this.api.hap.uuid.generate(`panamax:device:${deviceIdentifier}`);
         activeUUIDs.add(deviceUuid);
 
@@ -109,39 +114,51 @@ export class Panamax43xxPlatform implements DynamicPlatformPlugin {
         }
       } else {
         // INDIVIDUAL OUTLETS MODE
-        // Publishes each outlet as a separate PlatformAccessory tile
-        const configuredOutlets: OutletConfig[] = [];
-        for (let i = 1; i <= 8; i++) {
-          const custom = deviceConfig.outlets?.find((o) => o.index === i);
-          if (custom && custom.enabled === false) {
-            continue;
+        // Publishes outlets 1..8 in strict numeric order (Outlet 1 first, Outlet 8 last) and/or Master Switch
+        const exposeOutlets = controlMode === 'outletsAndMaster' || controlMode === 'outletsOnly';
+        const exposeMaster = controlMode === 'outletsAndMaster' || controlMode === 'masterOnly';
+
+        if (exposeOutlets) {
+          const orderedOutlets = resolveOrderedOutlets(deviceConfig);
+
+          for (const outlet of orderedOutlets) {
+            const outletUuid = this.api.hap.uuid.generate(`panamax:${deviceIdentifier}:outlet:${outlet.index}`);
+            activeUUIDs.add(outletUuid);
+
+            const displayName = `${deviceName} ${outlet.name || `Outlet ${outlet.index}`}`;
+            const existing = this.accessories.find((acc) => acc.UUID === outletUuid);
+
+            if (existing) {
+              this.log.info(`[${deviceName}] Restoring individual outlet accessory from cache: "${existing.displayName}"`);
+              existing.displayName = displayName;
+              new PanamaxIndividualOutletAccessory(this, existing, client, { ...deviceConfig, name: deviceName }, outlet);
+              this.api.updatePlatformAccessories([existing]);
+            } else {
+              this.log.info(`[${deviceName}] Adding individual outlet accessory: "${displayName}"`);
+              const accessory = new this.api.platformAccessory(displayName, outletUuid);
+              new PanamaxIndividualOutletAccessory(this, accessory, client, { ...deviceConfig, name: deviceName }, outlet);
+              this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+              this.accessories.push(accessory);
+            }
           }
-          configuredOutlets.push(
-            custom || {
-              index: i,
-              name: `Outlet ${i}`,
-              enabled: true,
-              accessoryType: 'Outlet',
-            },
-          );
         }
 
-        for (const outlet of configuredOutlets) {
-          const outletUuid = this.api.hap.uuid.generate(`panamax:${deviceIdentifier}:outlet:${outlet.index}`);
-          activeUUIDs.add(outletUuid);
+        if (exposeMaster) {
+          const masterUuid = this.api.hap.uuid.generate(`panamax:${deviceIdentifier}:master`);
+          activeUUIDs.add(masterUuid);
 
-          const displayName = `${deviceName} ${outlet.name || `Outlet ${outlet.index}`}`;
-          const existing = this.accessories.find((acc) => acc.UUID === outletUuid);
+          const masterDisplayName = `${deviceName} All Outlets`;
+          const existingMaster = this.accessories.find((acc) => acc.UUID === masterUuid);
 
-          if (existing) {
-            this.log.info(`[${deviceName}] Restoring individual outlet accessory from cache: "${existing.displayName}"`);
-            existing.displayName = displayName;
-            new PanamaxIndividualOutletAccessory(this, existing, client, { ...deviceConfig, name: deviceName }, outlet);
-            this.api.updatePlatformAccessories([existing]);
+          if (existingMaster) {
+            this.log.info(`[${deviceName}] Restoring master switch accessory from cache: "${existingMaster.displayName}"`);
+            existingMaster.displayName = masterDisplayName;
+            new PanamaxMasterSwitchAccessory(this, existingMaster, client, { ...deviceConfig, name: deviceName });
+            this.api.updatePlatformAccessories([existingMaster]);
           } else {
-            this.log.info(`[${deviceName}] Adding individual outlet accessory: "${displayName}"`);
-            const accessory = new this.api.platformAccessory(displayName, outletUuid);
-            new PanamaxIndividualOutletAccessory(this, accessory, client, { ...deviceConfig, name: deviceName }, outlet);
+            this.log.info(`[${deviceName}] Adding master switch accessory: "${masterDisplayName}"`);
+            const accessory = new this.api.platformAccessory(masterDisplayName, masterUuid);
+            new PanamaxMasterSwitchAccessory(this, accessory, client, { ...deviceConfig, name: deviceName });
             this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
             this.accessories.push(accessory);
           }

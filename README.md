@@ -25,15 +25,13 @@ Both models share the exact same TCP/IP communication protocol, command set, fee
 
 - **Compatibility with M4315-PRO & M4320-PRO:** Full out-of-the-box support for both 15A and 20A models.
 - **Single Child Bridge for All Units:** Publishes all your configured Panamax units together on **one child bridge** rather than cluttering your setup with separate bridges per device.
-- **Clean Unified Device Layout:** By default, each Panamax unit is published as **one unified accessory** containing all 8 outlets as individual services with distinct names. In Apple Home, you can view the unit as a single tidy tile or choose "Show as Separate Tiles".
-- **Unique Multi-Device Identification:** Easily configure multiple Panamax power conditioners (e.g., *AV Rack 4320*, *Living Room 4315*, *Studio*) with unique names, persistent IDs, and distinct tabs in Homebridge Config UI X.
+- **Clean Unified Device Layout:** By default, each Panamax unit is published as **one unified accessory** containing all 8 outlets in numeric order (`Outlet 1` through `Outlet 8`) with distinct HomeKit `ConfiguredName` labels.
+- **Flexible Outlet & Master Switch Modes:** Choose between **Individual Outlets (1–8) + Master Switch**, **Individual Outlets (1–8) Only**, or **Master Switch Only**.
+- **Pre-Populated Numeric Outlet Fields:** Outlets 1 through 8 are pre-populated in order (`Outlet 1` first, `Outlet 8` last) in Homebridge Config UI X—no sliders Required.
 - **Direct Local Network Control:** Fast, reliable communication via raw TCP/Telnet (`Port 23`) directly to the Panamax BlueBOLT card. No cloud connection or external services required.
 - **Smart Hardware Switching Delay:** Includes a configurable 30-second outlet switching delay window. When toggling outlets in Apple Home, HomeKit acknowledges the press immediately so buttons never time out, while background polls prevent premature hardware state readings from snapping buttons back before power sequencing completes.
 - **Real-Time Feedback & State Sync:** Listens for unsolicited feedback broadcasts from the Panamax and polls periodically to keep Apple Home in sync when outlets are toggled physically.
-- **Customizable Outlets:** Rename outlets, choose between `Outlet` or `Switch` service types, or hide unneeded outlets completely from HomeKit.
-- **Optional Master Switch:** Adds a master switch to toggle all outlets ON or OFF simultaneously.
 - **Optional Reboot Switches:** Exposes Reboot 1 and Reboot 2 as momentary buttons in HomeKit to trigger power-cycling sequences.
-- **Homebridge Config UI X Support:** Full visual schema configuration with tabs, tooltips, and outlet tables.
 - **Built-in Swift Diagnostic Tool:** Includes a native macOS CLI tool in the repository for direct troubleshooting and testing from terminal or Xcode.
 
 ---
@@ -74,18 +72,16 @@ Homebridge child bridges run plugins in an isolated process with their own HomeK
           "pollInterval": 10,
           "delay": 30,
           "accessoryMode": "device",
-          "enableAllOutletsSwitch": true,
+          "outletControlMode": "outletsAndMaster",
           "enableRebootButtons": false,
-          "outlets": [
-            { "index": 1, "name": "AV Receiver", "enabled": true, "accessoryType": "Outlet" },
-            { "index": 2, "name": "Apple TV", "enabled": true, "accessoryType": "Outlet" },
-            { "index": 3, "name": "Subwoofer", "enabled": true, "accessoryType": "Switch" },
-            { "index": 4, "name": "Turntable", "enabled": true, "accessoryType": "Switch" },
-            { "index": 5, "name": "Game Console", "enabled": true, "accessoryType": "Outlet" },
-            { "index": 6, "name": "Network Switch", "enabled": false },
-            { "index": 7, "name": "Modem", "enabled": false },
-            { "index": 8, "name": "Access Point", "enabled": false }
-          ]
+          "outlet1": { "name": "AV Receiver", "accessoryType": "Outlet" },
+          "outlet2": { "name": "Apple TV", "accessoryType": "Outlet" },
+          "outlet3": { "name": "Subwoofer", "accessoryType": "Switch" },
+          "outlet4": { "name": "Turntable", "accessoryType": "Switch" },
+          "outlet5": { "name": "Game Console", "accessoryType": "Outlet" },
+          "outlet6": { "name": "Network Switch", "accessoryType": "Outlet" },
+          "outlet7": { "name": "Modem", "accessoryType": "Outlet" },
+          "outlet8": { "name": "Access Point", "accessoryType": "Outlet" }
         },
         {
           "name": "Living Room 4315",
@@ -95,12 +91,8 @@ Homebridge child bridges run plugins in an isolated process with their own HomeK
           "pollInterval": 10,
           "delay": 30,
           "accessoryMode": "device",
-          "enableAllOutletsSwitch": false,
-          "enableRebootButtons": false,
-          "outlets": [
-            { "index": 1, "name": "TV OLED", "enabled": true, "accessoryType": "Outlet" },
-            { "index": 2, "name": "Soundbar", "enabled": true, "accessoryType": "Outlet" }
-          ]
+          "outletControlMode": "masterOnly",
+          "enableRebootButtons": false
         }
       ]
     }
@@ -122,13 +114,9 @@ Homebridge child bridges run plugins in an isolated process with their own HomeK
 | `devices[].pollInterval` | `integer` | No | `10` | Status polling interval in seconds |
 | `devices[].delay` | `integer` | No | `30` | Delay in seconds per outlet for hardware power sequencing and relay switching before verifying status |
 | `devices[].accessoryMode` | `string` | No | `"device"` | `"device"` (1 unified accessory per unit) or `"individual"` (separate accessory per outlet) |
-| `devices[].enableAllOutletsSwitch` | `boolean` | No | `false` | Expose a master switch to turn all outlets on/off |
+| `devices[].outletControlMode` | `string` | No | `"outletsAndMaster"` | `"outletsAndMaster"` (Outlets 1–8 + Master Switch), `"outletsOnly"` (Outlets 1–8 Only), or `"masterOnly"` (Master Switch Only) |
 | `devices[].enableRebootButtons` | `boolean` | No | `false` | Expose Reboot 1 / Reboot 2 buttons |
-| `devices[].outlets` | `array` | No | `[]` | Custom outlet settings (index 1–8) |
-| `devices[].outlets[].index` | `integer` | **Yes** | — | Outlet number (1 through 8) |
-| `devices[].outlets[].name` | `string` | No | `"Outlet N"` | Custom name for the outlet |
-| `devices[].outlets[].enabled` | `boolean` | No | `true` | Set to `false` to hide this outlet |
-| `devices[].outlets[].accessoryType` | `string` | No | `"Outlet"` | Display as `"Outlet"` or `"Switch"` |
+| `devices[].outlet1` … `outlet8` | `object` | No | `{"name": "Outlet N", "accessoryType": "Outlet"}` | Pre-ordered settings (`name` and `accessoryType`) for Outlet 1 through Outlet 8 |
 
 ---
 

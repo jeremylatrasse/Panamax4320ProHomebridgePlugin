@@ -63,16 +63,12 @@
               "title": "Polling Interval (seconds)",
               "type": "integer",
               "default": 10,
-              "minimum": 2,
-              "maximum": 300,
               "description": "How often to poll outlet status to keep Apple Home in sync. Default is 10 seconds."
             },
             "delay": {
               "title": "Outlet Delay (seconds)",
               "type": "integer",
               "default": 30,
-              "minimum": 0,
-              "maximum": 300,
               "description": "Delay in seconds per outlet to accommodate hardware power sequencing and relay switching before verifying status. Default is 30 seconds."
             },
             "accessoryMode": {
@@ -80,57 +76,217 @@
               "type": "string",
               "default": "device",
               "oneOf": [
-                { "title": "Unified Device (Recommended: 1 accessory tile containing 8 outlets)", "enum": ["device"] },
+                { "title": "Unified Device (Recommended: 1 accessory tile containing outlets)", "enum": ["device"] },
                 { "title": "Individual Accessories (Separate accessory tile per outlet)", "enum": ["individual"] }
               ],
-              "description": "Unified Device mode presents 1 clean physical accessory in Apple Home and Homebridge with 8 outlet services. In Apple Home, you can choose to view them as a single tile or separate tiles."
+              "description": "Unified Device mode presents 1 clean physical accessory in Apple Home and Homebridge. In Apple Home, you can choose to view them as a single tile or separate tiles."
             },
-            "enableAllOutletsSwitch": {
-              "title": "Expose Master All-Outlets Switch",
-              "type": "boolean",
-              "default": false,
-              "description": "Adds a master switch to toggle all outlets ON or OFF simultaneously."
+            "outletControlMode": {
+              "title": "Outlets & Master Switch Mode",
+              "type": "string",
+              "default": "outletsAndMaster",
+              "oneOf": [
+                { "title": "Individual Outlets (1–8) + Master Switch", "enum": ["outletsAndMaster"] },
+                { "title": "Individual Outlets (1–8) Only", "enum": ["outletsOnly"] },
+                { "title": "Master Switch Only", "enum": ["masterOnly"] }
+              ],
+              "description": "Choose whether to expose all 8 individual outlets and a Master All-Outlets switch, only the 8 individual outlets, or only the Master switch."
             },
             "enableRebootButtons": {
               "title": "Expose Reboot Buttons",
               "type": "boolean",
               "default": false,
-              "description": "Adds stateless switches for triggering Panamax Reboot 1 and Reboot 2 sequences."
+              "description": "Adds momentary switches for triggering Panamax Reboot 1 and Reboot 2 sequences."
             },
-            "outlets": {
-              "title": "Outlet Customizations (Optional)",
-              "type": "array",
-              "description": "Optional: customize names or service types for individual outlets 1 through 8. If empty, all 8 outlets are active with default names.",
-              "items": {
-                "title": "Outlet",
-                "type": "object",
-                "properties": {
-                  "index": {
-                    "title": "Outlet Number (1 - 8)",
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 8,
-                    "default": 1
-                  },
-                  "name": {
-                    "title": "Outlet Display Name",
-                    "type": "string",
-                    "placeholder": "e.g., Apple TV, Subwoofer, Receiver"
-                  },
-                  "enabled": {
-                    "title": "Expose to HomeKit",
-                    "type": "boolean",
-                    "default": true
-                  },
-                  "accessoryType": {
-                    "title": "HomeKit Service Type",
-                    "type": "string",
-                    "default": "Outlet",
-                    "oneOf": [
-                      { "title": "Outlet", "enum": ["Outlet"] },
-                      { "title": "Switch", "enum": ["Switch"] }
-                    ]
-                  }
+            "outlet1": {
+              "title": "Outlet 1",
+              "type": "object",
+              "condition": {
+                "functionBody": "return !model.devices || !model.devices[arrayIndices[0]] || model.devices[arrayIndices[0]].outletControlMode !== 'masterOnly';"
+              },
+              "properties": {
+                "name": {
+                  "title": "Outlet 1 Name",
+                  "type": "string",
+                  "default": "Outlet 1",
+                  "placeholder": "e.g., AV Receiver"
+                },
+                "accessoryType": {
+                  "title": "HomeKit Service Type",
+                  "type": "string",
+                  "default": "Outlet",
+                  "oneOf": [
+                    { "title": "Outlet", "enum": ["Outlet"] },
+                    { "title": "Switch", "enum": ["Switch"] }
+                  ]
+                }
+              }
+            },
+            "outlet2": {
+              "title": "Outlet 2",
+              "type": "object",
+              "condition": {
+                "functionBody": "return !model.devices || !model.devices[arrayIndices[0]] || model.devices[arrayIndices[0]].outletControlMode !== 'masterOnly';"
+              },
+              "properties": {
+                "name": {
+                  "title": "Outlet 2 Name",
+                  "type": "string",
+                  "default": "Outlet 2",
+                  "placeholder": "e.g., Apple TV"
+                },
+                "accessoryType": {
+                  "title": "HomeKit Service Type",
+                  "type": "string",
+                  "default": "Outlet",
+                  "oneOf": [
+                    { "title": "Outlet", "enum": ["Outlet"] },
+                    { "title": "Switch", "enum": ["Switch"] }
+                  ]
+                }
+              }
+            },
+            "outlet3": {
+              "title": "Outlet 3",
+              "type": "object",
+              "condition": {
+                "functionBody": "return !model.devices || !model.devices[arrayIndices[0]] || model.devices[arrayIndices[0]].outletControlMode !== 'masterOnly';"
+              },
+              "properties": {
+                "name": {
+                  "title": "Outlet 3 Name",
+                  "type": "string",
+                  "default": "Outlet 3",
+                  "placeholder": "e.g., Subwoofer"
+                },
+                "accessoryType": {
+                  "title": "HomeKit Service Type",
+                  "type": "string",
+                  "default": "Outlet",
+                  "oneOf": [
+                    { "title": "Outlet", "enum": ["Outlet"] },
+                    { "title": "Switch", "enum": ["Switch"] }
+                  ]
+                }
+              }
+            },
+            "outlet4": {
+              "title": "Outlet 4",
+              "type": "object",
+              "condition": {
+                "functionBody": "return !model.devices || !model.devices[arrayIndices[0]] || model.devices[arrayIndices[0]].outletControlMode !== 'masterOnly';"
+              },
+              "properties": {
+                "name": {
+                  "title": "Outlet 4 Name",
+                  "type": "string",
+                  "default": "Outlet 4",
+                  "placeholder": "e.g., Turntable"
+                },
+                "accessoryType": {
+                  "title": "HomeKit Service Type",
+                  "type": "string",
+                  "default": "Outlet",
+                  "oneOf": [
+                    { "title": "Outlet", "enum": ["Outlet"] },
+                    { "title": "Switch", "enum": ["Switch"] }
+                  ]
+                }
+              }
+            },
+            "outlet5": {
+              "title": "Outlet 5",
+              "type": "object",
+              "condition": {
+                "functionBody": "return !model.devices || !model.devices[arrayIndices[0]] || model.devices[arrayIndices[0]].outletControlMode !== 'masterOnly';"
+              },
+              "properties": {
+                "name": {
+                  "title": "Outlet 5 Name",
+                  "type": "string",
+                  "default": "Outlet 5",
+                  "placeholder": "e.g., Game Console"
+                },
+                "accessoryType": {
+                  "title": "HomeKit Service Type",
+                  "type": "string",
+                  "default": "Outlet",
+                  "oneOf": [
+                    { "title": "Outlet", "enum": ["Outlet"] },
+                    { "title": "Switch", "enum": ["Switch"] }
+                  ]
+                }
+              }
+            },
+            "outlet6": {
+              "title": "Outlet 6",
+              "type": "object",
+              "condition": {
+                "functionBody": "return !model.devices || !model.devices[arrayIndices[0]] || model.devices[arrayIndices[0]].outletControlMode !== 'masterOnly';"
+              },
+              "properties": {
+                "name": {
+                  "title": "Outlet 6 Name",
+                  "type": "string",
+                  "default": "Outlet 6",
+                  "placeholder": "e.g., Blu-ray Player"
+                },
+                "accessoryType": {
+                  "title": "HomeKit Service Type",
+                  "type": "string",
+                  "default": "Outlet",
+                  "oneOf": [
+                    { "title": "Outlet", "enum": ["Outlet"] },
+                    { "title": "Switch", "enum": ["Switch"] }
+                  ]
+                }
+              }
+            },
+            "outlet7": {
+              "title": "Outlet 7",
+              "type": "object",
+              "condition": {
+                "functionBody": "return !model.devices || !model.devices[arrayIndices[0]] || model.devices[arrayIndices[0]].outletControlMode !== 'masterOnly';"
+              },
+              "properties": {
+                "name": {
+                  "title": "Outlet 7 Name",
+                  "type": "string",
+                  "default": "Outlet 7",
+                  "placeholder": "e.g., Network Switch"
+                },
+                "accessoryType": {
+                  "title": "HomeKit Service Type",
+                  "type": "string",
+                  "default": "Outlet",
+                  "oneOf": [
+                    { "title": "Outlet", "enum": ["Outlet"] },
+                    { "title": "Switch", "enum": ["Switch"] }
+                  ]
+                }
+              }
+            },
+            "outlet8": {
+              "title": "Outlet 8",
+              "type": "object",
+              "condition": {
+                "functionBody": "return !model.devices || !model.devices[arrayIndices[0]] || model.devices[arrayIndices[0]].outletControlMode !== 'masterOnly';"
+              },
+              "properties": {
+                "name": {
+                  "title": "Outlet 8 Name",
+                  "type": "string",
+                  "default": "Outlet 8",
+                  "placeholder": "e.g., Amplifier"
+                },
+                "accessoryType": {
+                  "title": "HomeKit Service Type",
+                  "type": "string",
+                  "default": "Outlet",
+                  "oneOf": [
+                    { "title": "Outlet", "enum": ["Outlet"] },
+                    { "title": "Switch", "enum": ["Switch"] }
+                  ]
                 }
               }
             }

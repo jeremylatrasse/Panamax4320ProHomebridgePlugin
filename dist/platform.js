@@ -49,7 +49,8 @@ class Panamax43xxPlatform {
             const deviceName = deviceConfig.name?.trim() || `Panamax Unit ${deviceIndex + 1}`;
             const deviceIdentifier = deviceConfig.id?.trim() || deviceName;
             const mode = deviceConfig.accessoryMode || 'device';
-            this.log.info(`[${deviceName}] Configuring unit at ${deviceConfig.host}:${deviceConfig.port || 23} (Mode: ${mode})`);
+            const controlMode = (0, platformAccessory_1.resolveOutletControlMode)(deviceConfig);
+            this.log.info(`[${deviceName}] Configuring unit at ${deviceConfig.host}:${deviceConfig.port || 23} (Mode: ${mode}, Control: ${controlMode})`);
             // Initialize persistent TCP client for this physical Panamax device
             const client = new panamaxClient_1.PanamaxClient({
                 host: deviceConfig.host,
@@ -61,7 +62,7 @@ class Panamax43xxPlatform {
             client.start();
             if (mode === 'device') {
                 // UNIFIED DEVICE MODE (Default & Recommended)
-                // Publishes 1 single clean accessory per Panamax unit, containing 8 outlet services.
+                // Publishes 1 single clean accessory per Panamax unit
                 const deviceUuid = this.api.hap.uuid.generate(`panamax:device:${deviceIdentifier}`);
                 activeUUIDs.add(deviceUuid);
                 const existingAccessory = this.accessories.find((acc) => acc.UUID === deviceUuid);
@@ -81,35 +82,46 @@ class Panamax43xxPlatform {
             }
             else {
                 // INDIVIDUAL OUTLETS MODE
-                // Publishes each outlet as a separate PlatformAccessory tile
-                const configuredOutlets = [];
-                for (let i = 1; i <= 8; i++) {
-                    const custom = deviceConfig.outlets?.find((o) => o.index === i);
-                    if (custom && custom.enabled === false) {
-                        continue;
+                // Publishes outlets 1..8 in strict numeric order (Outlet 1 first, Outlet 8 last) and/or Master Switch
+                const exposeOutlets = controlMode === 'outletsAndMaster' || controlMode === 'outletsOnly';
+                const exposeMaster = controlMode === 'outletsAndMaster' || controlMode === 'masterOnly';
+                if (exposeOutlets) {
+                    const orderedOutlets = (0, platformAccessory_1.resolveOrderedOutlets)(deviceConfig);
+                    for (const outlet of orderedOutlets) {
+                        const outletUuid = this.api.hap.uuid.generate(`panamax:${deviceIdentifier}:outlet:${outlet.index}`);
+                        activeUUIDs.add(outletUuid);
+                        const displayName = `${deviceName} ${outlet.name || `Outlet ${outlet.index}`}`;
+                        const existing = this.accessories.find((acc) => acc.UUID === outletUuid);
+                        if (existing) {
+                            this.log.info(`[${deviceName}] Restoring individual outlet accessory from cache: "${existing.displayName}"`);
+                            existing.displayName = displayName;
+                            new platformAccessory_1.PanamaxIndividualOutletAccessory(this, existing, client, { ...deviceConfig, name: deviceName }, outlet);
+                            this.api.updatePlatformAccessories([existing]);
+                        }
+                        else {
+                            this.log.info(`[${deviceName}] Adding individual outlet accessory: "${displayName}"`);
+                            const accessory = new this.api.platformAccessory(displayName, outletUuid);
+                            new platformAccessory_1.PanamaxIndividualOutletAccessory(this, accessory, client, { ...deviceConfig, name: deviceName }, outlet);
+                            this.api.registerPlatformAccessories(settings_1.PLUGIN_NAME, settings_1.PLATFORM_NAME, [accessory]);
+                            this.accessories.push(accessory);
+                        }
                     }
-                    configuredOutlets.push(custom || {
-                        index: i,
-                        name: `Outlet ${i}`,
-                        enabled: true,
-                        accessoryType: 'Outlet',
-                    });
                 }
-                for (const outlet of configuredOutlets) {
-                    const outletUuid = this.api.hap.uuid.generate(`panamax:${deviceIdentifier}:outlet:${outlet.index}`);
-                    activeUUIDs.add(outletUuid);
-                    const displayName = `${deviceName} ${outlet.name || `Outlet ${outlet.index}`}`;
-                    const existing = this.accessories.find((acc) => acc.UUID === outletUuid);
-                    if (existing) {
-                        this.log.info(`[${deviceName}] Restoring individual outlet accessory from cache: "${existing.displayName}"`);
-                        existing.displayName = displayName;
-                        new platformAccessory_1.PanamaxIndividualOutletAccessory(this, existing, client, { ...deviceConfig, name: deviceName }, outlet);
-                        this.api.updatePlatformAccessories([existing]);
+                if (exposeMaster) {
+                    const masterUuid = this.api.hap.uuid.generate(`panamax:${deviceIdentifier}:master`);
+                    activeUUIDs.add(masterUuid);
+                    const masterDisplayName = `${deviceName} All Outlets`;
+                    const existingMaster = this.accessories.find((acc) => acc.UUID === masterUuid);
+                    if (existingMaster) {
+                        this.log.info(`[${deviceName}] Restoring master switch accessory from cache: "${existingMaster.displayName}"`);
+                        existingMaster.displayName = masterDisplayName;
+                        new platformAccessory_1.PanamaxMasterSwitchAccessory(this, existingMaster, client, { ...deviceConfig, name: deviceName });
+                        this.api.updatePlatformAccessories([existingMaster]);
                     }
                     else {
-                        this.log.info(`[${deviceName}] Adding individual outlet accessory: "${displayName}"`);
-                        const accessory = new this.api.platformAccessory(displayName, outletUuid);
-                        new platformAccessory_1.PanamaxIndividualOutletAccessory(this, accessory, client, { ...deviceConfig, name: deviceName }, outlet);
+                        this.log.info(`[${deviceName}] Adding master switch accessory: "${masterDisplayName}"`);
+                        const accessory = new this.api.platformAccessory(masterDisplayName, masterUuid);
+                        new platformAccessory_1.PanamaxMasterSwitchAccessory(this, accessory, client, { ...deviceConfig, name: deviceName });
                         this.api.registerPlatformAccessories(settings_1.PLUGIN_NAME, settings_1.PLATFORM_NAME, [accessory]);
                         this.accessories.push(accessory);
                     }

@@ -2,6 +2,13 @@ import { Service, PlatformAccessory, CharacteristicValue, WithUUID } from 'homeb
 import { Panamax43xxPlatform } from './platform';
 import { PanamaxClient } from './panamaxClient';
 
+export type OutletControlMode = 'outletsAndMaster' | 'outletsOnly' | 'masterOnly';
+
+export interface FixedOutletConfig {
+  name?: string;
+  accessoryType?: 'Outlet' | 'Switch';
+}
+
 export interface OutletConfig {
   index: number;
   name?: string;
@@ -17,15 +24,60 @@ export interface PanamaxDeviceConfig {
   pollInterval?: number;
   delay?: number;
   accessoryMode?: 'device' | 'individual';
+  outletControlMode?: OutletControlMode;
   enableAllOutletsSwitch?: boolean;
   enableRebootButtons?: boolean;
+  outlet1?: FixedOutletConfig;
+  outlet2?: FixedOutletConfig;
+  outlet3?: FixedOutletConfig;
+  outlet4?: FixedOutletConfig;
+  outlet5?: FixedOutletConfig;
+  outlet6?: FixedOutletConfig;
+  outlet7?: FixedOutletConfig;
+  outlet8?: FixedOutletConfig;
   outlets?: OutletConfig[];
+}
+
+export function resolveOutletControlMode(deviceConfig: PanamaxDeviceConfig): OutletControlMode {
+  if (
+    deviceConfig.outletControlMode === 'outletsAndMaster' ||
+    deviceConfig.outletControlMode === 'outletsOnly' ||
+    deviceConfig.outletControlMode === 'masterOnly'
+  ) {
+    return deviceConfig.outletControlMode;
+  }
+  if (deviceConfig.enableAllOutletsSwitch === false) {
+    return 'outletsOnly';
+  }
+  return 'outletsAndMaster';
+}
+
+export function resolveOrderedOutlets(deviceConfig: PanamaxDeviceConfig): OutletConfig[] {
+  const ordered: OutletConfig[] = [];
+  const legacyOutlets = Array.isArray(deviceConfig.outlets) ? deviceConfig.outlets : [];
+
+  for (let i = 1; i <= 8; i++) {
+    const fixedKey = `outlet${i}` as `outlet${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`;
+    const fixed = deviceConfig[fixedKey];
+    const legacy = legacyOutlets.find((o) => o.index === i) || legacyOutlets[i - 1];
+
+    const name = fixed?.name?.trim() || legacy?.name?.trim() || `Outlet ${i}`;
+    const accessoryType = fixed?.accessoryType || legacy?.accessoryType || 'Outlet';
+
+    ordered.push({
+      index: i,
+      name,
+      enabled: true,
+      accessoryType,
+    });
+  }
+
+  return ordered;
 }
 
 /**
  * Unified Device Accessory (Default & Recommended):
- * Exposes the entire Panamax unit as a single HomeKit accessory with 8 outlet services.
- * In Apple Home and Homebridge, it appears cleanly as ONE device with multiple outlets.
+ * Exposes the entire Panamax unit as a single HomeKit accessory with 8 outlet services (1..8) and/or a Master Switch.
  */
 export class PanamaxDeviceAccessory {
   private outletServices: Map<number, Service> = new Map();
@@ -57,14 +109,23 @@ export class PanamaxDeviceAccessory {
       }
     });
 
-    // 2. Setup Outlets 1..8
-    this.setupOutlets();
+    const controlMode = resolveOutletControlMode(this.deviceConfig);
+    const exposeOutlets = controlMode === 'outletsAndMaster' || controlMode === 'outletsOnly';
+    const exposeMaster = controlMode === 'outletsAndMaster' || controlMode === 'masterOnly';
 
-    // 3. Optional Master Switch (All Outlets)
-    if (this.deviceConfig.enableAllOutletsSwitch) {
+    // 2. Setup or remove Outlets 1..8 in numeric order (Outlet 1 first, Outlet 8 last)
+    if (exposeOutlets) {
+      this.setupOutlets();
+    } else {
+      this.removeAllOutletServices();
+    }
+
+    // 3. Setup or remove Master Switch (All Outlets)
+    if (exposeMaster) {
       this.setupMasterSwitch();
     } else {
       this.removeServiceIfPresent(this.platform.Service.Switch, 'master');
+      this.masterService = undefined;
     }
 
     // 4. Optional Reboot Buttons (Momentary Switches)
@@ -91,32 +152,29 @@ export class PanamaxDeviceAccessory {
     });
   }
 
-  private setServiceName(service: Service, name: string): void {
+  private setServiceName(service: Service, name: string, labelIndex?: number): void {
     service.displayName = name;
     service.setCharacteristic(this.platform.Characteristic.Name, name);
     if (!service.testCharacteristic(this.platform.Characteristic.ConfiguredName)) {
       service.addOptionalCharacteristic(this.platform.Characteristic.ConfiguredName);
     }
     service.setCharacteristic(this.platform.Characteristic.ConfiguredName, name);
+
+    if (labelIndex !== undefined) {
+      if (!service.testCharacteristic(this.platform.Characteristic.ServiceLabelIndex)) {
+        service.addOptionalCharacteristic(this.platform.Characteristic.ServiceLabelIndex);
+      }
+      service.setCharacteristic(this.platform.Characteristic.ServiceLabelIndex, labelIndex);
+    }
   }
 
   private setupOutlets(): void {
-    const configuredOutlets = this.deviceConfig.outlets || [];
+    const orderedOutlets = resolveOrderedOutlets(this.deviceConfig);
 
-    for (let i = 1; i <= 8; i++) {
-      const outletConfig = configuredOutlets.find((o) => o.index === i);
-      const isEnabled = outletConfig ? outletConfig.enabled !== false : true;
+    for (const outletConfig of orderedOutlets) {
+      const i = outletConfig.index;
       const subtype = `outlet-${i}`;
-
-      if (!isEnabled) {
-        // Remove if previously added
-        this.removeServiceIfPresent(this.platform.Service.Outlet, subtype);
-        this.removeServiceIfPresent(this.platform.Service.Switch, subtype);
-        this.outletServices.delete(i);
-        continue;
-      }
-
-      const isOutletType = (outletConfig?.accessoryType || 'Outlet') === 'Outlet';
+      const isOutletType = (outletConfig.accessoryType || 'Outlet') === 'Outlet';
       const TargetService = isOutletType ? this.platform.Service.Outlet : this.platform.Service.Switch;
       const OpposingService = isOutletType ? this.platform.Service.Switch : this.platform.Service.Outlet;
 
@@ -126,14 +184,14 @@ export class PanamaxDeviceAccessory {
         this.accessory.removeService(opposing);
       }
 
-      const outletDisplayName = outletConfig?.name?.trim() || `Outlet ${i}`;
+      const outletDisplayName = outletConfig.name?.trim() || `Outlet ${i}`;
       let service = this.accessory.getServiceById(TargetService, subtype);
 
       if (!service) {
         service = this.accessory.addService(TargetService, outletDisplayName, subtype);
       }
 
-      this.setServiceName(service, outletDisplayName);
+      this.setServiceName(service, outletDisplayName, i);
 
       // Configure characteristics
       service.getCharacteristic(this.platform.Characteristic.On)
@@ -147,6 +205,15 @@ export class PanamaxDeviceAccessory {
 
       this.outletServices.set(i, service);
     }
+  }
+
+  private removeAllOutletServices(): void {
+    for (let i = 1; i <= 8; i++) {
+      const subtype = `outlet-${i}`;
+      this.removeServiceIfPresent(this.platform.Service.Outlet, subtype);
+      this.removeServiceIfPresent(this.platform.Service.Switch, subtype);
+    }
+    this.outletServices.clear();
   }
 
   private setupMasterSwitch(): void {
@@ -317,5 +384,63 @@ export class PanamaxIndividualOutletAccessory {
 
   async getOn(): Promise<CharacteristicValue> {
     return !!this.client.status.outlets[this.outletIndex];
+  }
+}
+
+/**
+ * Individual Master Switch Accessory:
+ * Used when accessoryMode is 'individual' and Master Switch is enabled.
+ */
+export class PanamaxMasterSwitchAccessory {
+  private service: Service;
+
+  constructor(
+    private readonly platform: Panamax43xxPlatform,
+    private readonly accessory: PlatformAccessory,
+    private readonly client: PanamaxClient,
+    private readonly deviceConfig: PanamaxDeviceConfig,
+  ) {
+    const deviceIdentifier = deviceConfig.id || deviceConfig.name;
+    const displayName = `${deviceConfig.name} All Outlets`;
+
+    this.accessory.displayName = displayName;
+    this.accessory.getService(this.platform.Service.AccessoryInformation)!
+      .setCharacteristic(this.platform.Characteristic.Name, displayName)
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Panamax')
+      .setCharacteristic(this.platform.Characteristic.Model, client.status.model || 'M4320-PRO')
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, `PANAMAX-${deviceIdentifier}-MASTER`);
+
+    this.service = this.accessory.getService(this.platform.Service.Switch) ||
+      this.accessory.addService(this.platform.Service.Switch, displayName);
+    this.service.displayName = displayName;
+    this.service.setCharacteristic(this.platform.Characteristic.Name, displayName);
+    if (!this.service.testCharacteristic(this.platform.Characteristic.ConfiguredName)) {
+      this.service.addOptionalCharacteristic(this.platform.Characteristic.ConfiguredName);
+    }
+    this.service.setCharacteristic(this.platform.Characteristic.ConfiguredName, displayName);
+
+    this.service.getCharacteristic(this.platform.Characteristic.On)
+      .onSet(async (value) => {
+        const on = value as boolean;
+        if (on) {
+          await this.client.setAllOn();
+        } else {
+          await this.client.setAllOff();
+        }
+      })
+      .onGet(() => this.isAnyOutletOn());
+
+    this.client.on('outletChange', () => {
+      this.service.updateCharacteristic(this.platform.Characteristic.On, this.isAnyOutletOn());
+    });
+  }
+
+  private isAnyOutletOn(): boolean {
+    for (let i = 1; i <= 8; i++) {
+      if (this.client.status.outlets[i]) {
+        return true;
+      }
+    }
+    return false;
   }
 }

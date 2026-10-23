@@ -1,6 +1,11 @@
 import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { Panamax43xxPlatform } from './platform';
 import { PanamaxClient } from './panamaxClient';
+export type OutletControlMode = 'outletsAndMaster' | 'outletsOnly' | 'masterOnly';
+export interface FixedOutletConfig {
+    name?: string;
+    accessoryType?: 'Outlet' | 'Switch';
+}
 export interface OutletConfig {
     index: number;
     name?: string;
@@ -15,14 +20,24 @@ export interface PanamaxDeviceConfig {
     pollInterval?: number;
     delay?: number;
     accessoryMode?: 'device' | 'individual';
+    outletControlMode?: OutletControlMode;
     enableAllOutletsSwitch?: boolean;
     enableRebootButtons?: boolean;
+    outlet1?: FixedOutletConfig;
+    outlet2?: FixedOutletConfig;
+    outlet3?: FixedOutletConfig;
+    outlet4?: FixedOutletConfig;
+    outlet5?: FixedOutletConfig;
+    outlet6?: FixedOutletConfig;
+    outlet7?: FixedOutletConfig;
+    outlet8?: FixedOutletConfig;
     outlets?: OutletConfig[];
 }
+export declare function resolveOutletControlMode(deviceConfig: PanamaxDeviceConfig): OutletControlMode;
+export declare function resolveOrderedOutlets(deviceConfig: PanamaxDeviceConfig): OutletConfig[];
 /**
  * Unified Device Accessory (Default & Recommended):
- * Exposes the entire Panamax unit as a single HomeKit accessory with 8 outlet services.
- * In Apple Home and Homebridge, it appears cleanly as ONE device with multiple outlets.
+ * Exposes the entire Panamax unit as a single HomeKit accessory with 8 outlet services (1..8) and/or a Master Switch.
  */
 export declare class PanamaxDeviceAccessory {
     private readonly platform;
@@ -32,7 +47,9 @@ export declare class PanamaxDeviceAccessory {
     private outletServices;
     private masterService?;
     constructor(platform: Panamax43xxPlatform, accessory: PlatformAccessory, client: PanamaxClient, deviceConfig: PanamaxDeviceConfig);
+    private setServiceName;
     private setupOutlets;
+    private removeAllOutletServices;
     private setupMasterSwitch;
     private setupRebootButtons;
     private isAnyOutletOn;
@@ -54,4 +71,17 @@ export declare class PanamaxIndividualOutletAccessory {
     constructor(platform: Panamax43xxPlatform, accessory: PlatformAccessory, client: PanamaxClient, deviceConfig: PanamaxDeviceConfig, outletConfig: OutletConfig);
     setOn(value: CharacteristicValue): Promise<void>;
     getOn(): Promise<CharacteristicValue>;
+}
+/**
+ * Individual Master Switch Accessory:
+ * Used when accessoryMode is 'individual' and Master Switch is enabled.
+ */
+export declare class PanamaxMasterSwitchAccessory {
+    private readonly platform;
+    private readonly accessory;
+    private readonly client;
+    private readonly deviceConfig;
+    private service;
+    constructor(platform: Panamax43xxPlatform, accessory: PlatformAccessory, client: PanamaxClient, deviceConfig: PanamaxDeviceConfig);
+    private isAnyOutletOn;
 }
