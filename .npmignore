@@ -1,8 +1,11 @@
 src/
+homebridge-panamax-43xx/
+homebridge-panamax-43xx.xcodeproj/
 Panamax4320ProHomebridge/
 Panamax4320ProHomebridge.xcodeproj/
 .github/
 .vscode/
 .idea/
 tsconfig.json
+test-panamax.mjs
 .DS_Store
