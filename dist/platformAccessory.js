@@ -105,39 +105,44 @@ class PanamaxDeviceAccessory {
             }
         });
     }
-    setServiceName(service, name, labelIndex) {
+    setServiceName(service, name) {
         service.displayName = name;
         service.setCharacteristic(this.platform.Characteristic.Name, name);
+        // Do NOT set ServiceLabelIndex on outlets; ServiceLabelIndex causes Apple Home
+        // to override custom names with generic "Outlet 1".."Outlet 8" labels.
+        if (service.testCharacteristic(this.platform.Characteristic.ServiceLabelIndex)) {
+            const labelChar = service.getCharacteristic(this.platform.Characteristic.ServiceLabelIndex);
+            service.removeCharacteristic(labelChar);
+        }
         if (!service.testCharacteristic(this.platform.Characteristic.ConfiguredName)) {
             service.addOptionalCharacteristic(this.platform.Characteristic.ConfiguredName);
         }
         service.setCharacteristic(this.platform.Characteristic.ConfiguredName, name);
-        if (labelIndex !== undefined) {
-            if (!service.testCharacteristic(this.platform.Characteristic.ServiceLabelIndex)) {
-                service.addOptionalCharacteristic(this.platform.Characteristic.ServiceLabelIndex);
-            }
-            service.setCharacteristic(this.platform.Characteristic.ServiceLabelIndex, labelIndex);
-        }
+        service.getCharacteristic(this.platform.Characteristic.ConfiguredName)
+            .onGet(() => name);
     }
     setupOutlets() {
         const orderedOutlets = resolveOrderedOutlets(this.deviceConfig);
         for (const outletConfig of orderedOutlets) {
             const i = outletConfig.index;
-            const subtype = `outlet-${i}`;
+            const outletDisplayName = outletConfig.name?.trim() || `Outlet ${i}`;
+            // Include the configured name in the subtype so that renaming an outlet in Homebridge
+            // assigns a fresh HAP instance ID (iid) and forces Apple HomeKit to adopt the new name.
+            const subtype = `outlet-${i}-${outletDisplayName}`;
             const isOutletType = (outletConfig.accessoryType || 'Outlet') === 'Outlet';
             const TargetService = isOutletType ? this.platform.Service.Outlet : this.platform.Service.Switch;
-            const OpposingService = isOutletType ? this.platform.Service.Switch : this.platform.Service.Outlet;
-            // Remove conflicting opposite service type if changed in config
-            const opposing = this.accessory.getServiceById(OpposingService, subtype);
-            if (opposing) {
-                this.accessory.removeService(opposing);
+            // Remove any existing service for this outlet index whose subtype or service type doesn't match
+            const existingForIndex = this.accessory.services.filter((s) => s.subtype === `outlet-${i}` || (s.subtype?.startsWith(`outlet-${i}-`) ?? false));
+            for (const oldService of existingForIndex) {
+                if (oldService.subtype !== subtype || oldService.UUID !== TargetService.UUID) {
+                    this.accessory.removeService(oldService);
+                }
             }
-            const outletDisplayName = outletConfig.name?.trim() || `Outlet ${i}`;
             let service = this.accessory.getServiceById(TargetService, subtype);
             if (!service) {
                 service = this.accessory.addService(TargetService, outletDisplayName, subtype);
             }
-            this.setServiceName(service, outletDisplayName, i);
+            this.setServiceName(service, outletDisplayName);
             // Configure characteristics
             service.getCharacteristic(this.platform.Characteristic.On)
                 .onSet((value) => this.setOutletState(i, value))
@@ -150,10 +155,9 @@ class PanamaxDeviceAccessory {
         }
     }
     removeAllOutletServices() {
-        for (let i = 1; i <= 8; i++) {
-            const subtype = `outlet-${i}`;
-            this.removeServiceIfPresent(this.platform.Service.Outlet, subtype);
-            this.removeServiceIfPresent(this.platform.Service.Switch, subtype);
+        const toRemove = this.accessory.services.filter((s) => s.subtype !== undefined && /^outlet-[1-8](-|$)/.test(s.subtype));
+        for (const service of toRemove) {
+            this.accessory.removeService(service);
         }
         this.outletServices.clear();
     }
@@ -279,6 +283,8 @@ class PanamaxIndividualOutletAccessory {
             this.service.addOptionalCharacteristic(this.platform.Characteristic.ConfiguredName);
         }
         this.service.setCharacteristic(this.platform.Characteristic.ConfiguredName, displayName);
+        this.service.getCharacteristic(this.platform.Characteristic.ConfiguredName)
+            .onGet(() => displayName);
         this.service.getCharacteristic(this.platform.Characteristic.On)
             .onSet(this.setOn.bind(this))
             .onGet(this.getOn.bind(this));
@@ -345,6 +351,8 @@ class PanamaxMasterSwitchAccessory {
             this.service.addOptionalCharacteristic(this.platform.Characteristic.ConfiguredName);
         }
         this.service.setCharacteristic(this.platform.Characteristic.ConfiguredName, displayName);
+        this.service.getCharacteristic(this.platform.Characteristic.ConfiguredName)
+            .onGet(() => displayName);
         this.service.getCharacteristic(this.platform.Characteristic.On)
             .onSet(async (value) => {
             const on = value;
