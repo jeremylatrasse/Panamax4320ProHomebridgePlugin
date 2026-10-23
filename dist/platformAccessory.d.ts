@@ -13,6 +13,7 @@ export interface PanamaxDeviceConfig {
     host: string;
     port?: number;
     pollInterval?: number;
+    delay?: number;
     accessoryMode?: 'device' | 'individual';
     enableAllOutletsSwitch?: boolean;
     enableRebootButtons?: boolean;

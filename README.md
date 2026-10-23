@@ -16,6 +16,7 @@ A dynamic platform plugin for [Homebridge](https://homebridge.io) to control **P
 - **Clean Unified Device Layout:** By default, each Panamax unit is published as **one unified accessory** containing all 8 outlets as individual services with distinct names. In Apple Home, you can view the unit as a single tidy tile or choose "Show as Separate Tiles".
 - **Unique Multi-Device Identification:** Easily configure multiple Panamax power conditioners (e.g., *AV Rack*, *Living Room*, *Studio*) with unique names, persistent IDs, and distinct tabs in Homebridge Config UI X.
 - **Direct Local Network Control:** Fast, reliable communication via raw TCP/Telnet (`Port 23`) directly to the Panamax BlueBOLT card. No cloud connection or external services required.
+- **Smart Hardware Switching Delay:** Includes a configurable 30-second outlet switching delay window. When toggling outlets in Apple Home, HomeKit acknowledges the press immediately so buttons never time out, while background polls prevent premature hardware state readings from snapping buttons back before power sequencing completes.
 - **Real-Time Feedback & State Sync:** Listens for unsolicited feedback broadcasts from the Panamax and polls periodically to keep Apple Home in sync when outlets are toggled physically.
 - **Customizable Outlets:** Rename outlets, choose between `Outlet` or `Switch` service types, or hide unneeded outlets completely from HomeKit.
 - **Optional Master Switch:** Adds a master switch to toggle all outlets ON or OFF simultaneously.
@@ -67,6 +68,7 @@ Homebridge child bridges run plugins in an isolated process with their own HomeK
           "host": "192.168.1.50",
           "port": 23,
           "pollInterval": 10,
+          "delay": 30,
           "accessoryMode": "device",
           "enableAllOutletsSwitch": true,
           "enableRebootButtons": false,
@@ -87,6 +89,7 @@ Homebridge child bridges run plugins in an isolated process with their own HomeK
           "host": "192.168.1.51",
           "port": 23,
           "pollInterval": 10,
+          "delay": 30,
           "accessoryMode": "device",
           "enableAllOutletsSwitch": false,
           "enableRebootButtons": false,
@@ -113,6 +116,7 @@ Homebridge child bridges run plugins in an isolated process with their own HomeK
 | `devices[].host` | `string` | **Yes** | — | IP address or hostname of the Panamax unit |
 | `devices[].port` | `integer` | No | `23` | TCP port (default is 23) |
 | `devices[].pollInterval` | `integer` | No | `10` | Status polling interval in seconds |
+| `devices[].delay` | `integer` | No | `30` | Delay in seconds per outlet for hardware power sequencing and relay switching before verifying status |
 | `devices[].accessoryMode` | `string` | No | `"device"` | `"device"` (1 unified accessory per unit) or `"individual"` (separate accessory per outlet) |
 | `devices[].enableAllOutletsSwitch` | `boolean` | No | `false` | Expose a master switch to turn all outlets on/off |
 | `devices[].enableRebootButtons` | `boolean` | No | `false` | Expose Reboot 1 / Reboot 2 buttons |

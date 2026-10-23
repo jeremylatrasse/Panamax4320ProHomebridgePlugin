@@ -80,6 +80,7 @@ export class Panamax4320Platform implements DynamicPlatformPlugin {
           host: deviceConfig.host,
           port: deviceConfig.port || 23,
           pollInterval: deviceConfig.pollInterval || 10,
+          delay: deviceConfig.delay !== undefined ? deviceConfig.delay : 30,
         },
         this.log,
       );

@@ -67,6 +67,14 @@
               "maximum": 300,
               "description": "How often to poll outlet status to keep Apple Home in sync. Default is 10 seconds."
             },
+            "delay": {
+              "title": "Outlet Delay (seconds)",
+              "type": "integer",
+              "default": 30,
+              "minimum": 0,
+              "maximum": 300,
+              "description": "Delay in seconds per outlet to accommodate hardware power sequencing and relay switching before verifying status. Default is 30 seconds."
+            },
             "accessoryMode": {
               "title": "HomeKit Accessory Mode",
               "type": "string",

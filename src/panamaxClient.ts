@@ -7,6 +7,7 @@ export interface PanamaxClientConfig {
   port: number;
   pollInterval?: number; // in seconds
   timeout?: number;      // in seconds
+  delay?: number;        // in seconds (hardware switching delay, default 30)
 }
 
 export interface PanamaxDeviceStatus {
@@ -32,6 +33,9 @@ export class PanamaxClient extends EventEmitter {
   private readonly port: number;
   private readonly pollIntervalMs: number;
   private readonly timeoutMs: number;
+  private readonly delayMs: number;
+  private readonly inFlightDelayUntil: Map<number, number> = new Map();
+  private readonly confirmationTimers: Map<number, NodeJS.Timeout> = new Map();
 
   constructor(
     config: PanamaxClientConfig,
@@ -42,6 +46,7 @@ export class PanamaxClient extends EventEmitter {
     this.port = config.port || 23;
     this.pollIntervalMs = Math.max((config.pollInterval || 10) * 1000, 2000);
     this.timeoutMs = Math.max((config.timeout || 5) * 1000, 1000);
+    this.delayMs = Math.max((config.delay !== undefined ? config.delay : 30) * 1000, 0);
   }
 
   public start(): void {
@@ -58,6 +63,11 @@ export class PanamaxClient extends EventEmitter {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    for (const timer of this.confirmationTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.confirmationTimers.clear();
+    this.inFlightDelayUntil.clear();
     this.disconnect();
   }
 
@@ -119,7 +129,7 @@ export class PanamaxClient extends EventEmitter {
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
+      return;
     }
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
@@ -138,39 +148,58 @@ export class PanamaxClient extends EventEmitter {
   }
 
   private startPolling(): void {
-    this.pollTimer = setInterval(async () => {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+    }
+    this.pollTimer = setInterval(() => {
       if (this.isConnected) {
-        try {
-          await this.queryOutletStatus();
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : String(err);
-          this.log.debug(`[${this.host}:${this.port}] Poll failed: ${message}`);
-        }
+        this.queryOutletStatus().catch((err: Error) => {
+          this.log.debug(`[${this.host}] Poll error: ${err.message}`);
+        });
       }
     }, this.pollIntervalMs);
   }
 
   /**
-   * Filter out Telnet IAC (0xFF) command sequences from buffer.
+   * Send a raw ASCII command string over the socket.
    */
-  private stripTelnetIAC(buffer: Buffer): Buffer {
+  public sendRaw(command: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!this.socket || !this.isConnected) {
+        // Try to connect if disconnected
+        this.connect();
+        return reject(new Error(`Not connected to Panamax at ${this.host}:${this.port}`));
+      }
+
+      this.log.debug(`[${this.host}:${this.port}] TX: ${command.trim()}`);
+      this.socket.write(command, 'ascii', (err) => {
+        if (err) {
+          return reject(err);
+        }
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Strips Telnet IAC (0xFF) negotiation bytes so raw ASCII text is parsed cleanly.
+   */
+  private stripTelnetIAC(data: Buffer): Buffer {
     const clean: number[] = [];
     let i = 0;
-    while (i < buffer.length) {
-      if (buffer[i] === 0xFF) { // IAC
-        if (i + 1 < buffer.length && buffer[i + 1] === 0xFF) {
-          // Escaped 0xFF byte
-          clean.push(0xFF);
-          i += 2;
-        } else if (i + 2 < buffer.length) {
-          // 3-byte command like IAC DO/DONT/WILL/WONT
+    while (i < data.length) {
+      if (data[i] === 0xFF) {
+        // Telnet IAC command
+        const cmd = data[i + 1];
+        if (cmd >= 251 && cmd <= 254) {
+          // 3-byte command: IAC (DO|DONT|WILL|WONT) <option>
           i += 3;
         } else {
-          // Truncated IAC command, skip
-          i++;
+          // 2-byte command
+          i += 2;
         }
       } else {
-        clean.push(buffer[i]);
+        clean.push(data[i]);
         i++;
       }
     }
@@ -201,6 +230,26 @@ export class PanamaxClient extends EventEmitter {
     if (outletMatch) {
       const outletNum = parseInt(outletMatch[1], 10);
       const state = outletMatch[2].toUpperCase() === 'ON';
+
+      // Check if outlet is in an active switching delay window
+      const delayExpiry = this.inFlightDelayUntil.get(outletNum);
+      if (delayExpiry) {
+        if (Date.now() < delayExpiry) {
+          if (state !== this.status.outlets[outletNum]) {
+            const remainingSec = Math.ceil((delayExpiry - Date.now()) / 1000);
+            this.log.debug(
+              `[${this.host}] Outlet ${outletNum} is in switching delay (${remainingSec}s remaining). Suppressing reported state ${state ? 'ON' : 'OFF'}.`,
+            );
+            return;
+          } else {
+            // Hardware has reached desired target state early
+            this.inFlightDelayUntil.delete(outletNum);
+          }
+        } else {
+          this.inFlightDelayUntil.delete(outletNum);
+        }
+      }
+
       const changed = this.status.outlets[outletNum] !== state;
       this.status.outlets[outletNum] = state;
       if (changed) {
@@ -249,17 +298,29 @@ export class PanamaxClient extends EventEmitter {
 
     const stateStr = on ? 'ON' : 'OFF';
     const command = `!SWITCH ${outletNumber} ${stateStr}\r`;
-    this.log.info(`[${this.host}] Switching Outlet ${outletNumber} -> ${stateStr}`);
+    this.log.info(`[${this.host}] Switching Outlet ${outletNumber} -> ${stateStr} (delay: ${this.delayMs / 1000}s)`);
 
-    // Update optimistic state
+    // Update optimistic state and mark outlet in delay window
     this.status.outlets[outletNumber] = on;
+    if (this.delayMs > 0) {
+      this.inFlightDelayUntil.set(outletNumber, Date.now() + this.delayMs);
+    }
+
+    // Clear any previous pending confirmation timer for this outlet
+    const existingTimer = this.confirmationTimers.get(outletNumber);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
 
     await this.sendRaw(command);
 
-    // Give the device 150ms then query status to confirm
-    setTimeout(() => {
+    // Schedule verification query after the delay completes
+    const checkDelay = this.delayMs > 0 ? this.delayMs + 500 : 300;
+    const timer = setTimeout(() => {
+      this.confirmationTimers.delete(outletNumber);
       this.queryOutletStatus().catch(() => {/* ignore */});
-    }, 150);
+    }, checkDelay);
+    this.confirmationTimers.set(outletNumber, timer);
 
     return on;
   }
@@ -268,26 +329,56 @@ export class PanamaxClient extends EventEmitter {
    * Turn all outlets ON simultaneously.
    */
   public async setAllOn(): Promise<void> {
-    this.log.info(`[${this.host}] Executing ALL_ON`);
-    await this.sendRaw('!ALL_ON\r');
+    this.log.info(`[${this.host}] Executing ALL_ON (delay: ${this.delayMs / 1000}s)`);
+    const now = Date.now();
     for (let i = 1; i <= 8; i++) {
       this.status.outlets[i] = true;
+      if (this.delayMs > 0) {
+        this.inFlightDelayUntil.set(i, now + this.delayMs);
+      }
       this.emit('outletChange', i, true);
     }
-    setTimeout(() => this.queryOutletStatus().catch(() => {/* ignore */}), 300);
+
+    const existingMasterTimer = this.confirmationTimers.get(0);
+    if (existingMasterTimer) {
+      clearTimeout(existingMasterTimer);
+    }
+
+    await this.sendRaw('!ALL_ON\r');
+    const checkDelay = this.delayMs > 0 ? this.delayMs + 500 : 500;
+    const timer = setTimeout(() => {
+      this.confirmationTimers.delete(0);
+      this.queryOutletStatus().catch(() => {/* ignore */});
+    }, checkDelay);
+    this.confirmationTimers.set(0, timer);
   }
 
   /**
    * Turn all outlets OFF simultaneously.
    */
   public async setAllOff(): Promise<void> {
-    this.log.info(`[${this.host}] Executing ALL_OFF`);
-    await this.sendRaw('!ALL_OFF\r');
+    this.log.info(`[${this.host}] Executing ALL_OFF (delay: ${this.delayMs / 1000}s)`);
+    const now = Date.now();
     for (let i = 1; i <= 8; i++) {
       this.status.outlets[i] = false;
+      if (this.delayMs > 0) {
+        this.inFlightDelayUntil.set(i, now + this.delayMs);
+      }
       this.emit('outletChange', i, false);
     }
-    setTimeout(() => this.queryOutletStatus().catch(() => {/* ignore */}), 300);
+
+    const existingMasterTimer = this.confirmationTimers.get(0);
+    if (existingMasterTimer) {
+      clearTimeout(existingMasterTimer);
+    }
+
+    await this.sendRaw('!ALL_OFF\r');
+    const checkDelay = this.delayMs > 0 ? this.delayMs + 500 : 500;
+    const timer = setTimeout(() => {
+      this.confirmationTimers.delete(0);
+      this.queryOutletStatus().catch(() => {/* ignore */});
+    }, checkDelay);
+    this.confirmationTimers.set(0, timer);
   }
 
   /**
@@ -322,31 +413,16 @@ export class PanamaxClient extends EventEmitter {
   }
 
   /**
-   * Query fault status (?FAULTSTAT).
+   * Query unit firmware (?FIRMWARE).
    */
-  public async queryFaults(): Promise<void> {
-    await this.sendRaw('?FAULTSTAT\r');
+  public async queryFirmware(): Promise<void> {
+    await this.sendRaw('?FIRMWARE\r');
   }
 
   /**
-   * Send raw command over the socket, ensuring socket connection.
+   * Query unit fault status (?FAULTSTAT).
    */
-  public sendRaw(command: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.socket || !this.isConnected) {
-        // Try connecting if disconnected
-        this.connect();
-        return reject(new Error(`Panamax [${this.host}:${this.port}] is not connected.`));
-      }
-
-      this.log.debug(`[${this.host}:${this.port}] TX: ${command.trim()}`);
-      this.socket.write(command, 'ascii', (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
+  public async queryFaults(): Promise<void> {
+    await this.sendRaw('?FAULTSTAT\r');
   }
 }

@@ -5,6 +5,7 @@ export interface PanamaxClientConfig {
     port: number;
     pollInterval?: number;
     timeout?: number;
+    delay?: number;
 }
 export interface PanamaxDeviceStatus {
     outlets: boolean[];
@@ -25,6 +26,9 @@ export declare class PanamaxClient extends EventEmitter {
     private readonly port;
     private readonly pollIntervalMs;
     private readonly timeoutMs;
+    private readonly delayMs;
+    private readonly inFlightDelayUntil;
+    private readonly confirmationTimers;
     constructor(config: PanamaxClientConfig, log: Logger);
     start(): void;
     stop(): void;
@@ -33,7 +37,11 @@ export declare class PanamaxClient extends EventEmitter {
     private disconnect;
     private startPolling;
     /**
-     * Filter out Telnet IAC (0xFF) command sequences from buffer.
+     * Send a raw ASCII command string over the socket.
+     */
+    sendRaw(command: string): Promise<void>;
+    /**
+     * Strips Telnet IAC (0xFF) negotiation bytes so raw ASCII text is parsed cleanly.
      */
     private stripTelnetIAC;
     private handleIncomingData;
@@ -67,11 +75,11 @@ export declare class PanamaxClient extends EventEmitter {
      */
     queryId(): Promise<void>;
     /**
-     * Query fault status (?FAULTSTAT).
+     * Query unit firmware (?FIRMWARE).
+     */
+    queryFirmware(): Promise<void>;
+    /**
+     * Query unit fault status (?FAULTSTAT).
      */
     queryFaults(): Promise<void>;
-    /**
-     * Send raw command over the socket, ensuring socket connection.
-     */
-    sendRaw(command: string): Promise<void>;
 }
