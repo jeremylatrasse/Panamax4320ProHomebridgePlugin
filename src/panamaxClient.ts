@@ -21,8 +21,10 @@ export class PanamaxClient extends EventEmitter {
   private socket: net.Socket | null = null;
   private isConnected = false;
   private isConnecting = false;
+  private connectPromise: Promise<void> | null = null;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private pollTimer: NodeJS.Timeout | null = null;
+  private sendQueue: Promise<void> = Promise.resolve();
   private buffer = '';
 
   public status: PanamaxDeviceStatus = {
@@ -50,7 +52,7 @@ export class PanamaxClient extends EventEmitter {
   }
 
   public start(): void {
-    this.connect();
+    this.ensureConnected().catch(() => {/* handled by reconnect loop */});
     this.startPolling();
   }
 
@@ -72,69 +74,115 @@ export class PanamaxClient extends EventEmitter {
   }
 
   private connect(): void {
-    if (this.socket || this.isConnecting) {
-      return;
+    this.ensureConnected().catch(() => {/* handled by reconnect loop */});
+  }
+
+  private ensureConnected(): Promise<void> {
+    if (this.isConnected && this.socket && !this.socket.destroyed) {
+      return Promise.resolve();
+    }
+
+    if (this.connectPromise) {
+      return this.connectPromise;
+    }
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
 
     this.isConnecting = true;
     this.log.debug(`[${this.host}:${this.port}] Connecting...`);
 
-    const socket = new net.Socket();
-    this.socket = socket;
-    socket.setTimeout(this.timeoutMs);
+    this.connectPromise = new Promise<void>((resolve, reject) => {
+      const socket = new net.Socket();
+      this.socket = socket;
+      let settled = false;
 
-    socket.connect(this.port, this.host, () => {
-      this.isConnected = true;
-      this.isConnecting = false;
-      this.log.info(`[${this.host}:${this.port}] Connected to Panamax device.`);
-      this.emit('connected');
+      const connectTimeout = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          this.log.debug(`[${this.host}:${this.port}] Connection attempt timed out.`);
+          socket.destroy(new Error(`Connection timeout to ${this.host}:${this.port}`));
+          reject(new Error(`Connection timeout to Panamax at ${this.host}:${this.port}`));
+        }
+      }, this.timeoutMs);
 
-      // Attempt to enable unsolicited feedback on the device
-      this.sendRaw('!SET_FEEDBACK ON\r').catch(() => {
-        // Fallback for units supporting !FEEDBACK ON
-        this.sendRaw('!FEEDBACK ON\r').catch(() => {/* ignore */});
+      socket.connect(this.port, this.host, () => {
+        clearTimeout(connectTimeout);
+        this.isConnected = true;
+        this.isConnecting = false;
+        this.connectPromise = null;
+
+        // Disable idle socket timeout so the connection stays open between polls,
+        // and use TCP keep-alive to detect dead peers.
+        socket.setTimeout(0);
+        socket.setKeepAlive(true, 15000);
+
+        this.log.info(`[${this.host}:${this.port}] Connected to Panamax device.`);
+        this.emit('connected');
+
+        if (!settled) {
+          settled = true;
+          resolve();
+        }
+
+        // Attempt to enable unsolicited feedback on the device
+        this.writeDirectly('!SET_FEEDBACK ON\r').catch(() => {
+          this.writeDirectly('!FEEDBACK ON\r').catch(() => {/* ignore */});
+        });
+
+        // Request initial identification & outlet states
+        this.writeDirectly('?ID\r').catch(() => {/* ignore */});
+        this.writeDirectly('?OUTLETSTAT\r').catch(() => {/* ignore */});
       });
 
-      // Request initial identification & outlet states
-      this.queryId().catch(() => {/* ignore */});
-      this.queryOutletStatus().catch(() => {/* ignore */});
+      socket.on('data', (data: Buffer) => {
+        this.handleIncomingData(data);
+      });
+
+      socket.on('error', (err: Error) => {
+        clearTimeout(connectTimeout);
+        this.log.warn(`[${this.host}:${this.port}] Socket error: ${err.message}`);
+        if (!settled) {
+          settled = true;
+          reject(err);
+        }
+      });
+
+      socket.on('close', (hadError: boolean) => {
+        clearTimeout(connectTimeout);
+        this.isConnected = false;
+        this.isConnecting = false;
+        this.connectPromise = null;
+        if (this.socket === socket) {
+          this.socket = null;
+        }
+        this.emit('disconnected');
+        if (!settled) {
+          settled = true;
+          reject(new Error(`Connection closed while connecting to Panamax at ${this.host}:${this.port}`));
+        }
+        if (hadError) {
+          this.log.warn(`[${this.host}:${this.port}] Connection closed with error. Retrying in 5s...`);
+        } else {
+          this.log.debug(`[${this.host}:${this.port}] Connection closed.`);
+        }
+        this.scheduleReconnect();
+      });
     });
 
-    socket.on('data', (data: Buffer) => {
-      this.handleIncomingData(data);
-    });
-
-    socket.on('timeout', () => {
-      this.log.debug(`[${this.host}:${this.port}] Socket timeout.`);
-      socket.destroy();
-    });
-
-    socket.on('error', (err: Error) => {
-      this.log.warn(`[${this.host}:${this.port}] Socket error: ${err.message}`);
-    });
-
-    socket.on('close', (hadError: boolean) => {
-      this.isConnected = false;
-      this.isConnecting = false;
-      this.socket = null;
-      this.emit('disconnected');
-      if (hadError) {
-        this.log.warn(`[${this.host}:${this.port}] Connection closed with error. Retrying in 10s...`);
-      } else {
-        this.log.debug(`[${this.host}:${this.port}] Connection closed.`);
-      }
-      this.scheduleReconnect();
-    });
+    return this.connectPromise;
   }
 
   private scheduleReconnect(): void {
-    if (this.reconnectTimer) {
+    if (this.reconnectTimer || this.isConnecting || this.isConnected) {
       return;
     }
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      this.connect();
-    }, 10000);
+      this.ensureConnected().catch(() => {/* handled by close handler */});
+    }, 5000);
   }
 
   private disconnect(): void {
@@ -145,6 +193,7 @@ export class PanamaxClient extends EventEmitter {
     }
     this.isConnected = false;
     this.isConnecting = false;
+    this.connectPromise = null;
   }
 
   private startPolling(): void {
@@ -156,18 +205,15 @@ export class PanamaxClient extends EventEmitter {
         this.queryOutletStatus().catch((err: Error) => {
           this.log.debug(`[${this.host}] Poll error: ${err.message}`);
         });
+      } else {
+        this.ensureConnected().catch(() => {/* ignore */});
       }
     }, this.pollIntervalMs);
   }
 
-  /**
-   * Send a raw ASCII command string over the socket.
-   */
-  public sendRaw(command: string): Promise<void> {
+  private writeDirectly(command: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      if (!this.socket || !this.isConnected) {
-        // Try to connect if disconnected
-        this.connect();
+      if (!this.socket || !this.isConnected || this.socket.destroyed) {
         return reject(new Error(`Not connected to Panamax at ${this.host}:${this.port}`));
       }
 
@@ -182,8 +228,32 @@ export class PanamaxClient extends EventEmitter {
   }
 
   /**
-   * Strips Telnet IAC (0xFF) negotiation bytes so raw ASCII text is parsed cleanly.
+   * Send a raw ASCII command string over the socket.
+   * Automatically connects if currently disconnected and serializes concurrent writes
+   * so simultaneous HomeKit scene commands don't collide.
    */
+  public sendRaw(command: string): Promise<void> {
+    const task = this.sendQueue.then(async () => {
+      await this.ensureConnected();
+      try {
+        await this.writeDirectly(command);
+      } catch {
+        // Reconnect once if socket had just closed
+        this.disconnect();
+        await this.ensureConnected();
+        await this.writeDirectly(command);
+      }
+      // Small delay between back-to-back commands for Panamax Telnet parser stability
+      await new Promise((r) => setTimeout(r, 80));
+    });
+
+    // Keep queue alive even if an individual command fails
+    this.sendQueue = task.catch(() => {/* ignore queue error */});
+    return task;
+  }
+
+  /**
+   * Strips Telnet IAC (0xFF) negotiation bytes so raw ASCII text is parsed cleanly.\n   */
   private stripTelnetIAC(data: Buffer): Buffer {
     const clean: number[] = [];
     let i = 0;

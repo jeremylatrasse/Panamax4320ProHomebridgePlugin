@@ -18,8 +18,10 @@ export declare class PanamaxClient extends EventEmitter {
     private socket;
     private isConnected;
     private isConnecting;
+    private connectPromise;
     private reconnectTimer;
     private pollTimer;
+    private sendQueue;
     private buffer;
     status: PanamaxDeviceStatus;
     private readonly host;
@@ -33,11 +35,15 @@ export declare class PanamaxClient extends EventEmitter {
     start(): void;
     stop(): void;
     private connect;
+    private ensureConnected;
     private scheduleReconnect;
     private disconnect;
     private startPolling;
+    private writeDirectly;
     /**
      * Send a raw ASCII command string over the socket.
+     * Automatically connects if currently disconnected and serializes concurrent writes
+     * so simultaneous HomeKit scene commands don't collide.
      */
     sendRaw(command: string): Promise<void>;
     /**
