@@ -99,6 +99,7 @@ export class Panamax43xxPlatform implements DynamicPlatformPlugin {
           this.log.info(`[${deviceName}] Restoring existing device accessory from cache: "${existingAccessory.displayName}"`);
           existingAccessory.displayName = deviceName;
           new PanamaxDeviceAccessory(this, existingAccessory, client, { ...deviceConfig, name: deviceName });
+          this.api.updatePlatformAccessories([existingAccessory]);
         } else {
           this.log.info(`[${deviceName}] Registering new unified device accessory: "${deviceName}"`);
           const accessory = new this.api.platformAccessory(deviceName, deviceUuid);
@@ -134,7 +135,9 @@ export class Panamax43xxPlatform implements DynamicPlatformPlugin {
 
           if (existing) {
             this.log.info(`[${deviceName}] Restoring individual outlet accessory from cache: "${existing.displayName}"`);
+            existing.displayName = displayName;
             new PanamaxIndividualOutletAccessory(this, existing, client, { ...deviceConfig, name: deviceName }, outlet);
+            this.api.updatePlatformAccessories([existing]);
           } else {
             this.log.info(`[${deviceName}] Adding individual outlet accessory: "${displayName}"`);
             const accessory = new this.api.platformAccessory(displayName, outletUuid);

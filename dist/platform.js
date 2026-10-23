@@ -69,6 +69,7 @@ class Panamax43xxPlatform {
                     this.log.info(`[${deviceName}] Restoring existing device accessory from cache: "${existingAccessory.displayName}"`);
                     existingAccessory.displayName = deviceName;
                     new platformAccessory_1.PanamaxDeviceAccessory(this, existingAccessory, client, { ...deviceConfig, name: deviceName });
+                    this.api.updatePlatformAccessories([existingAccessory]);
                 }
                 else {
                     this.log.info(`[${deviceName}] Registering new unified device accessory: "${deviceName}"`);
@@ -101,7 +102,9 @@ class Panamax43xxPlatform {
                     const existing = this.accessories.find((acc) => acc.UUID === outletUuid);
                     if (existing) {
                         this.log.info(`[${deviceName}] Restoring individual outlet accessory from cache: "${existing.displayName}"`);
+                        existing.displayName = displayName;
                         new platformAccessory_1.PanamaxIndividualOutletAccessory(this, existing, client, { ...deviceConfig, name: deviceName }, outlet);
+                        this.api.updatePlatformAccessories([existing]);
                     }
                     else {
                         this.log.info(`[${deviceName}] Adding individual outlet accessory: "${displayName}"`);

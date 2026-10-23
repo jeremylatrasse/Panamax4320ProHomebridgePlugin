@@ -91,6 +91,15 @@ export class PanamaxDeviceAccessory {
     });
   }
 
+  private setServiceName(service: Service, name: string): void {
+    service.displayName = name;
+    service.setCharacteristic(this.platform.Characteristic.Name, name);
+    if (!service.testCharacteristic(this.platform.Characteristic.ConfiguredName)) {
+      service.addOptionalCharacteristic(this.platform.Characteristic.ConfiguredName);
+    }
+    service.setCharacteristic(this.platform.Characteristic.ConfiguredName, name);
+  }
+
   private setupOutlets(): void {
     const configuredOutlets = this.deviceConfig.outlets || [];
 
@@ -117,14 +126,14 @@ export class PanamaxDeviceAccessory {
         this.accessory.removeService(opposing);
       }
 
-      const outletDisplayName = outletConfig?.name || `Outlet ${i}`;
+      const outletDisplayName = outletConfig?.name?.trim() || `Outlet ${i}`;
       let service = this.accessory.getServiceById(TargetService, subtype);
 
       if (!service) {
         service = this.accessory.addService(TargetService, outletDisplayName, subtype);
-      } else {
-        service.setCharacteristic(this.platform.Characteristic.Name, outletDisplayName);
       }
+
+      this.setServiceName(service, outletDisplayName);
 
       // Configure characteristics
       service.getCharacteristic(this.platform.Characteristic.On)
@@ -147,9 +156,9 @@ export class PanamaxDeviceAccessory {
 
     if (!service) {
       service = this.accessory.addService(this.platform.Service.Switch, name, subtype);
-    } else {
-      service.setCharacteristic(this.platform.Characteristic.Name, name);
     }
+
+    this.setServiceName(service, name);
 
     service.getCharacteristic(this.platform.Characteristic.On)
       .onSet(async (value) => {
@@ -173,9 +182,9 @@ export class PanamaxDeviceAccessory {
 
       if (!service) {
         service = this.accessory.addService(this.platform.Service.Switch, name, subtype);
-      } else {
-        service.setCharacteristic(this.platform.Characteristic.Name, name);
       }
+
+      this.setServiceName(service, name);
 
       service.getCharacteristic(this.platform.Characteristic.On)
         .onSet(async (value) => {
@@ -248,8 +257,11 @@ export class PanamaxIndividualOutletAccessory {
     this.outletIndex = outletConfig.index;
     this.isOutletType = (outletConfig.accessoryType || 'Outlet') === 'Outlet';
     const deviceIdentifier = deviceConfig.id || deviceConfig.name;
+    const displayName = `${deviceConfig.name} ${outletConfig.name?.trim() || `Outlet ${this.outletIndex}`}`;
 
+    this.accessory.displayName = displayName;
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
+      .setCharacteristic(this.platform.Characteristic.Name, displayName)
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Panamax')
       .setCharacteristic(this.platform.Characteristic.Model, client.status.model || 'M4320-PRO')
       .setCharacteristic(this.platform.Characteristic.SerialNumber, `PANAMAX-${deviceIdentifier}-OUTLET-${this.outletIndex}`);
@@ -262,9 +274,13 @@ export class PanamaxIndividualOutletAccessory {
       this.accessory.removeService(oldOpposing);
     }
 
-    this.service = this.accessory.getService(TargetService) || this.accessory.addService(TargetService);
-    const displayName = `${deviceConfig.name} ${outletConfig.name || `Outlet ${this.outletIndex}`}`;
+    this.service = this.accessory.getService(TargetService) || this.accessory.addService(TargetService, displayName);
+    this.service.displayName = displayName;
     this.service.setCharacteristic(this.platform.Characteristic.Name, displayName);
+    if (!this.service.testCharacteristic(this.platform.Characteristic.ConfiguredName)) {
+      this.service.addOptionalCharacteristic(this.platform.Characteristic.ConfiguredName);
+    }
+    this.service.setCharacteristic(this.platform.Characteristic.ConfiguredName, displayName);
 
     this.service.getCharacteristic(this.platform.Characteristic.On)
       .onSet(this.setOn.bind(this))
