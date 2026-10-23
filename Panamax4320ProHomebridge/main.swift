@@ -2,15 +2,15 @@
 //  main.swift
 //  Panamax4320ProHomebridge
 //
-//  A macOS Swift utility to test and communicate with Panamax M4320-PRO
-//  power conditioners over raw TCP / Telnet (port 23).
+//  A macOS Swift utility to test and communicate with Panamax M4315-PRO
+//  and M4320-PRO power conditioners over raw TCP / Telnet (port 23).
 //
 
 import Foundation
 import Network
 import os
 
-/// Actor responsible for TCP communication with a Panamax M4320-PRO unit.
+/// Actor responsible for TCP communication with a Panamax M4315-PRO / M4320-PRO unit.
 actor PanamaxSwiftClient {
     private let host: String
     private let port: UInt16
@@ -54,7 +54,7 @@ actor PanamaxSwiftClient {
                     }
                 case .cancelled:
                     if shouldResume() {
-                        continuation.resume(throwing: NSError(domain: "Panamax", code: -1, userInfo: [NSLocalizedDescriptionKey: "Connection cancelled"]))
+                        continuation.resume(throwing: POSIXError(.ECANCELED))
                     }
                 default:
                     break
@@ -67,19 +67,27 @@ actor PanamaxSwiftClient {
         self.isConnected = true
     }
 
-    /// Sends a raw command and receives lines.
+    /// Disconnects the socket.
+    func disconnect() {
+        connection?.cancel()
+        connection = nil
+        isConnected = false
+    }
+
+    /// Sends a raw command line and awaits the response chunk.
     func sendCommand(_ command: String) async throws -> String {
-        guard let conn = connection else {
-            throw NSError(domain: "Panamax", code: -2, userInfo: [NSLocalizedDescriptionKey: "Not connected"])
+        guard let connection = self.connection, isConnected else {
+            throw POSIXError(.ENOTCONN)
         }
 
-        let formatted = command.hasSuffix("\r") ? command : "\(command)\r"
-        guard let data = formatted.data(using: .ascii) else {
-            throw NSError(domain: "Panamax", code: -3, userInfo: [NSLocalizedDescriptionKey: "Invalid command data"])
+        let formattedCommand = command.hasSuffix("\r") ? command : "\(command)\r"
+        guard let data = formattedCommand.data(using: .ascii) else {
+            throw POSIXError(.EINVAL)
         }
 
+        // Send
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            conn.send(content: data, completion: .contentProcessed { error in
+            connection.send(content: data, completion: .contentProcessed { error in
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
@@ -88,48 +96,62 @@ actor PanamaxSwiftClient {
             })
         }
 
-        // Receive response
-        return try await withCheckedThrowingContinuation { continuation in
-            conn.receive(minimumIncompleteLength: 1, maximumLength: 4096) { content, _, _, error in
+        // Read response
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) { content, _, isComplete, error in
                 if let error = error {
                     continuation.resume(throwing: error)
-                } else if let content = content, let str = String(data: content, encoding: .ascii) {
-                    continuation.resume(returning: str)
-                } else {
-                    continuation.resume(returning: "")
+                    return
                 }
+
+                guard let content = content, !content.isEmpty else {
+                    continuation.resume(returning: "")
+                    return
+                }
+
+                // Strip Telnet IAC (0xFF)
+                var cleanBytes = [UInt8]()
+                var i = 0
+                let bytes = [UInt8](content)
+                while i < bytes.count {
+                    if bytes[i] == 0xFF {
+                        let cmd = (i + 1 < bytes.count) ? bytes[i + 1] : 0
+                        if cmd >= 251 && cmd <= 254 {
+                            i += 3
+                        } else {
+                            i += 2
+                        }
+                    } else {
+                        cleanBytes.append(bytes[i])
+                        i += 1
+                    }
+                }
+
+                let response = String(bytes: cleanBytes, encoding: .ascii) ?? ""
+                continuation.resume(returning: response)
             }
         }
     }
-
-    /// Disconnects the socket.
-    func disconnect() {
-        connection?.cancel()
-        connection = nil
-        isConnected = false
-    }
 }
 
-// MARK: - CLI Logic
-
+/// Command line CLI runner
 struct PanamaxCLI {
     static func run() async {
-        let args = ProcessInfo.processInfo.arguments
+        let args = CommandLine.arguments
 
-        print("=== Panamax M4320-PRO Diagnostic Utility ===")
-
-        guard args.count >= 2 else {
+        if args.contains("-h") || args.contains("--help") || args.count < 2 {
             printUsage()
             return
         }
 
         var host: String?
         var port: UInt16 = 23
-        var command: String = "?OUTLETSTAT"
+        var command = "?OUTLETSTAT\r"
 
         var i = 1
         while i < args.count {
-            switch args[i] {
+            let arg = args[i]
+            switch arg {
             case "--host", "-h":
                 if i + 1 < args.count {
                     host = args[i + 1]
@@ -141,16 +163,16 @@ struct PanamaxCLI {
                     i += 1
                 }
             case "--status":
-                command = "?OUTLETSTAT"
+                command = "?OUTLETSTAT\r"
             case "--id":
-                command = "?ID"
+                command = "?ID\r"
             case "--faults":
-                command = "?FAULTSTAT"
+                command = "?FAULTSTAT\r"
             case "--switch":
                 if i + 2 < args.count {
                     let outlet = args[i + 1]
                     let state = args[i + 2].uppercased()
-                    command = "!SWITCH \(outlet) \(state)"
+                    command = "!SWITCH \(outlet) \(state)\r"
                     i += 2
                 }
             case "--raw":
@@ -190,6 +212,9 @@ struct PanamaxCLI {
         print("""
         Usage:
           Panamax4320ProHomebridge --host <ip> [options]
+
+        Supported Models:
+          Panamax M4315-PRO, Panamax M4320-PRO
 
         Options:
           --host, -h <ip>         Device IP address (e.g. 192.168.1.50)

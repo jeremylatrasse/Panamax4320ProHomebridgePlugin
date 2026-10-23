@@ -1,5 +1,5 @@
 import { Service, PlatformAccessory, CharacteristicValue, WithUUID } from 'homebridge';
-import { Panamax4320Platform } from './platform';
+import { Panamax43xxPlatform } from './platform';
 import { PanamaxClient } from './panamaxClient';
 
 export interface OutletConfig {
@@ -32,7 +32,7 @@ export class PanamaxDeviceAccessory {
   private masterService?: Service;
 
   constructor(
-    private readonly platform: Panamax4320Platform,
+    private readonly platform: Panamax43xxPlatform,
     private readonly accessory: PlatformAccessory,
     private readonly client: PanamaxClient,
     private readonly deviceConfig: PanamaxDeviceConfig,
@@ -239,7 +239,7 @@ export class PanamaxIndividualOutletAccessory {
   private readonly isOutletType: boolean;
 
   constructor(
-    private readonly platform: Panamax4320Platform,
+    private readonly platform: Panamax43xxPlatform,
     private readonly accessory: PlatformAccessory,
     private readonly client: PanamaxClient,
     private readonly deviceConfig: PanamaxDeviceConfig,

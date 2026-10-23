@@ -1,5 +1,5 @@
 import { PlatformAccessory, CharacteristicValue } from 'homebridge';
-import { Panamax4320Platform } from './platform';
+import { Panamax43xxPlatform } from './platform';
 import { PanamaxClient } from './panamaxClient';
 export interface OutletConfig {
     index: number;
@@ -31,7 +31,7 @@ export declare class PanamaxDeviceAccessory {
     private readonly deviceConfig;
     private outletServices;
     private masterService?;
-    constructor(platform: Panamax4320Platform, accessory: PlatformAccessory, client: PanamaxClient, deviceConfig: PanamaxDeviceConfig);
+    constructor(platform: Panamax43xxPlatform, accessory: PlatformAccessory, client: PanamaxClient, deviceConfig: PanamaxDeviceConfig);
     private setupOutlets;
     private setupMasterSwitch;
     private setupRebootButtons;
@@ -51,7 +51,7 @@ export declare class PanamaxIndividualOutletAccessory {
     private service;
     private readonly outletIndex;
     private readonly isOutletType;
-    constructor(platform: Panamax4320Platform, accessory: PlatformAccessory, client: PanamaxClient, deviceConfig: PanamaxDeviceConfig, outletConfig: OutletConfig);
+    constructor(platform: Panamax43xxPlatform, accessory: PlatformAccessory, client: PanamaxClient, deviceConfig: PanamaxDeviceConfig, outletConfig: OutletConfig);
     setOn(value: CharacteristicValue): Promise<void>;
     getOn(): Promise<CharacteristicValue>;
 }

@@ -1,22 +1,22 @@
 {
-  "pluginAlias": "Panamax4320",
+  "pluginAlias": "Panamax43xx",
   "pluginType": "platform",
   "singular": true,
-  "headerDisplay": "Panamax M4320-PRO Power Conditioner Plugin for Homebridge",
-  "footerDisplay": "Control multiple Panamax M4320-PRO and M4315-PRO units over local TCP / Telnet. All configured units are published together under 1 Child Bridge when child bridging is enabled.",
+  "headerDisplay": "Panamax M4315-PRO / M4320-PRO Power Conditioner Plugin for Homebridge",
+  "footerDisplay": "Control multiple Panamax M4315-PRO and M4320-PRO units over local TCP / Telnet. All configured units are published together under 1 Child Bridge when child bridging is enabled.",
   "schema": {
     "type": "object",
     "properties": {
       "name": {
         "title": "Platform Name",
         "type": "string",
-        "default": "Panamax 4320",
+        "default": "Panamax 43xx",
         "description": "The name for this platform instance in Homebridge."
       },
       "platform": {
         "title": "Platform Identifier",
         "type": "string",
-        "default": "Panamax4320"
+        "default": "Panamax43xx"
       },
       "_bridge": {
         "type": "object",
@@ -38,7 +38,7 @@
             "name": {
               "title": "Device Name",
               "type": "string",
-              "placeholder": "e.g., AV Rack 4320, Living Room Power",
+              "placeholder": "e.g., AV Rack 4320, Living Room 4315",
               "description": "A unique, identifiable name for this Panamax hardware unit."
             },
             "id": {

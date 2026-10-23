@@ -1,11 +1,11 @@
 /**
  * Name of the platform registered in Homebridge.
- * This must match the platform name used in config.json and config.schema.json.
+ * This matches the platform name used in config.json and config.schema.json.
  */
-export const PLATFORM_NAME = 'Panamax4320';
+export const PLATFORM_NAME = 'Panamax43xx';
 
 /**
  * Name of the npm package.
- * This must match the name in package.json.
+ * This matches the name in package.json.
  */
-export const PLUGIN_NAME = 'homebridge-panamax-4320';
+export const PLUGIN_NAME = 'homebridge-panamax-43xx';

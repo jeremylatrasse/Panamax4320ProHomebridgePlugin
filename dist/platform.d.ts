@@ -1,5 +1,5 @@
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic } from 'homebridge';
-export declare class Panamax4320Platform implements DynamicPlatformPlugin {
+export declare class Panamax43xxPlatform implements DynamicPlatformPlugin {
     readonly log: Logger;
     readonly config: PlatformConfig;
     readonly api: API;

@@ -17,7 +17,7 @@ import {
   OutletConfig,
 } from './platformAccessory';
 
-export class Panamax4320Platform implements DynamicPlatformPlugin {
+export class Panamax43xxPlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service;
   public readonly Characteristic: typeof Characteristic;
 
@@ -32,7 +32,7 @@ export class Panamax4320Platform implements DynamicPlatformPlugin {
     this.Service = this.api.hap.Service;
     this.Characteristic = this.api.hap.Characteristic;
 
-    this.log.info(`Initializing Panamax 4320 Platform: "${this.config.name || 'Panamax 4320'}"`);
+    this.log.info(`Initializing Panamax 43xx Platform: "${this.config.name || 'Panamax 43xx'}"`);
 
     this.api.on('didFinishLaunching', () => {
       this.discoverDevices();

@@ -1,10 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Panamax4320Platform = void 0;
+exports.Panamax43xxPlatform = void 0;
 const settings_1 = require("./settings");
 const panamaxClient_1 = require("./panamaxClient");
 const platformAccessory_1 = require("./platformAccessory");
-class Panamax4320Platform {
+class Panamax43xxPlatform {
     log;
     config;
     api;
@@ -18,7 +18,7 @@ class Panamax4320Platform {
         this.api = api;
         this.Service = this.api.hap.Service;
         this.Characteristic = this.api.hap.Characteristic;
-        this.log.info(`Initializing Panamax 4320 Platform: "${this.config.name || 'Panamax 4320'}"`);
+        this.log.info(`Initializing Panamax 43xx Platform: "${this.config.name || 'Panamax 43xx'}"`);
         this.api.on('didFinishLaunching', () => {
             this.discoverDevices();
         });
@@ -121,5 +121,5 @@ class Panamax4320Platform {
         }
     }
 }
-exports.Panamax4320Platform = Panamax4320Platform;
+exports.Panamax43xxPlatform = Panamax43xxPlatform;
 //# sourceMappingURL=platform.js.map

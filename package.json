@@ -1,13 +1,14 @@
 {
-  "name": "homebridge-panamax-4320",
+  "name": "homebridge-panamax-43xx",
   "version": "1.0.0",
-  "description": "Homebridge dynamic platform plugin for Panamax M4320-PRO (and M4315-PRO) power conditioners over TCP/Telnet.",
+  "description": "Homebridge dynamic platform plugin for Panamax M4315-PRO and M4320-PRO power conditioners over TCP/Telnet.",
   "license": "Apache-2.0",
   "keywords": [
     "homebridge-plugin",
     "panamax",
-    "m4320-pro",
+    "panamax-43xx",
     "m4315-pro",
+    "m4320-pro",
     "bluebolt",
     "power-conditioner",
     "pdu"

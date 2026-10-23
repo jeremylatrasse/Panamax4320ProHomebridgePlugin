@@ -2,19 +2,31 @@
   <img src="https://raw.githubusercontent.com/homebridge/branding/master/logos/homebridge-wordmark-logo-vertical.png" width="150">
 </p>
 
-# Homebridge Panamax 4320 Plugin (`homebridge-panamax-4320`)
+# Homebridge Panamax 43xx Plugin (`homebridge-panamax-43xx`)
 
 [![verified-by-homebridge](https://badgen.net/badge/homebridge/verified/purple)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
 
-A dynamic platform plugin for [Homebridge](https://homebridge.io) to control **Panamax M4320-PRO** (and **M4315-PRO**) power conditioners over local TCP / Telnet (port 23).
+A dynamic platform plugin for [Homebridge](https://homebridge.io) to control **Panamax M4315-PRO** and **Panamax M4320-PRO** power conditioners over local TCP / Telnet (port 23).
+
+---
+
+## Supported Hardware
+
+This plugin is specifically built and tested for both models in the Panamax 43xx series equipped with a BlueBOLT network management card (**BlueBOLT-CV1** or **BlueBOLT-CV2**):
+
+* **Panamax M4315-PRO**: 15 Amp power conditioner with 8 individually controllable AC outlets across isolated banks.
+* **Panamax M4320-PRO**: 20 Amp power conditioner with 8 individually controllable AC outlets across isolated banks.
+
+Both models share the exact same TCP/IP communication protocol, command set, feedback broadcasting, and reboot sequencing.
 
 ---
 
 ## Features
 
+- **Compatibility with M4315-PRO & M4320-PRO:** Full out-of-the-box support for both 15A and 20A models.
 - **Single Child Bridge for All Units:** Publishes all your configured Panamax units together on **one child bridge** rather than cluttering your setup with separate bridges per device.
 - **Clean Unified Device Layout:** By default, each Panamax unit is published as **one unified accessory** containing all 8 outlets as individual services with distinct names. In Apple Home, you can view the unit as a single tidy tile or choose "Show as Separate Tiles".
-- **Unique Multi-Device Identification:** Easily configure multiple Panamax power conditioners (e.g., *AV Rack*, *Living Room*, *Studio*) with unique names, persistent IDs, and distinct tabs in Homebridge Config UI X.
+- **Unique Multi-Device Identification:** Easily configure multiple Panamax power conditioners (e.g., *AV Rack 4320*, *Living Room 4315*, *Studio*) with unique names, persistent IDs, and distinct tabs in Homebridge Config UI X.
 - **Direct Local Network Control:** Fast, reliable communication via raw TCP/Telnet (`Port 23`) directly to the Panamax BlueBOLT card. No cloud connection or external services required.
 - **Smart Hardware Switching Delay:** Includes a configurable 30-second outlet switching delay window. When toggling outlets in Apple Home, HomeKit acknowledges the press immediately so buttons never time out, while background polls prevent premature hardware state readings from snapping buttons back before power sequencing completes.
 - **Real-Time Feedback & State Sync:** Listens for unsolicited feedback broadcasts from the Panamax and polls periodically to keep Apple Home in sync when outlets are toggled physically.
@@ -26,20 +38,12 @@ A dynamic platform plugin for [Homebridge](https://homebridge.io) to control **P
 
 ---
 
-## Supported Hardware
-
-- **Panamax M4320-PRO**
-- **Panamax M4315-PRO**
-- Equipped with **BlueBOLT-CV1** or **BlueBOLT-CV2** network card (Port 23 Telnet enabled).
-
----
-
 ## Running as a Single Child Bridge
 
 Homebridge child bridges run plugins in an isolated process with their own HomeKit pairing code. Because this plugin is a **Dynamic Platform**, **all Panamax devices configured under this platform are published together on 1 single child bridge**:
 
 1. In the **Homebridge Config UI X** dashboard, go to the **Plugins** tab.
-2. Find the **Panamax 4320** plugin card.
+2. Find the **Panamax 43xx** plugin card.
 3. Click the **Wrench icon** (Settings) -> **Bridge Settings**.
 4. Toggle **Run as Child Bridge** and click **Save**.
 5. Restart Homebridge.
@@ -55,8 +59,8 @@ Homebridge child bridges run plugins in an isolated process with their own HomeK
 {
   "platforms": [
     {
-      "platform": "Panamax4320",
-      "name": "Panamax 4320",
+      "platform": "Panamax43xx",
+      "name": "Panamax 43xx",
       "_bridge": {
         "username": "0E:43:20:AA:BB:CC",
         "port": 51820
@@ -84,7 +88,7 @@ Homebridge child bridges run plugins in an isolated process with their own HomeK
           ]
         },
         {
-          "name": "Living Room Media",
+          "name": "Living Room 4315",
           "id": "living-room-panamax-02",
           "host": "192.168.1.51",
           "port": 23,
@@ -108,10 +112,10 @@ Homebridge child bridges run plugins in an isolated process with their own HomeK
 
 | Parameter | Type | Required | Default | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| `platform` | `string` | **Yes** | `"Panamax4320"` | Platform identifier |
-| `name` | `string` | **Yes** | `"Panamax 4320"` | Platform instance name in Homebridge |
+| `platform` | `string` | **Yes** | `"Panamax43xx"` | Platform identifier (also accepts `"Panamax4320"`) |
+| `name` | `string` | **Yes** | `"Panamax 43xx"` | Platform instance name in Homebridge |
 | `devices` | `array` | **Yes** | `[]` | List of Panamax hardware units to manage |
-| `devices[].name` | `string` | **Yes** | — | Unique, identifiable name for the unit (e.g. *"AV Rack 4320"*) |
+| `devices[].name` | `string` | **Yes** | — | Unique, identifiable name for the unit (e.g. *"AV Rack 4320"*, *"Living Room 4315"*) |
 | `devices[].id` | `string` | No | — | Optional unique ID to keep persistent HomeKit pairing if IP changes |
 | `devices[].host` | `string` | **Yes** | — | IP address or hostname of the Panamax unit |
 | `devices[].port` | `integer` | No | `23` | TCP port (default is 23) |
@@ -132,7 +136,7 @@ Homebridge child bridges run plugins in an isolated process with their own HomeK
 
 The repository includes a native Swift CLI executable in the Xcode project (`Panamax4320ProHomebridge.xcodeproj`).
 
-You can run it from Xcode or terminal to test communication with your device:
+You can run it from Xcode or terminal to test communication with any Panamax M4315-PRO or M4320-PRO device:
 ```bash
 # Query all outlet states
 ./Products/Panamax4320ProHomebridge --host 192.168.1.50 --status
